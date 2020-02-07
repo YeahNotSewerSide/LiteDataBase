@@ -1,2 +1,2 @@
 # DataBase
-Just my own implementation of the light Data base in c++
+Now it's just a core of DB, sockets will be build on top of this core.
