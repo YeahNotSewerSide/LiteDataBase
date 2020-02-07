@@ -1,5 +1,4 @@
-﻿
-#include <iostream>
+﻿#include <iostream>
 
 class Cell {
 	private:
@@ -20,12 +19,17 @@ class Cell {
 			
 			if (strcmp(this->type, "integer\0")==0 || strcmp(this->type, "uinteger\0")==0 || strcmp(this->type, "float\0")==0) {
 				this->value = new unsigned char[sizeof(int)];
-				memcpy(&this->value,&value, sizeof(int));
+				memcpy(&this->value, &value, sizeof(int));
 			}
 			if (strcmp(this->type, "long\0")==0 || strcmp(this->type, "ulong\0")==0|| strcmp(this->type, "double\0")==0) {
-				this->value = new unsigned char[8];
-				memcpy(&this->value, &value, 8);
+				this->value = new unsigned char[sizeof(long)];
+				memcpy(&this->value, &value, sizeof(long));
 			}
+			if (strcmp(this->type, "boolean\0") == 0) {
+				this->value = new unsigned char[1];
+				memcpy(&this->value, &value, 1);
+			}
+
 			empty = false;
 		}
 		
@@ -198,11 +202,7 @@ class DB {
 			}
 		}
 
-
 };
-
-
-
 
 
 int main()
