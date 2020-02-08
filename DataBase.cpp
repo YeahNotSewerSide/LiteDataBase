@@ -10,7 +10,10 @@ class Cell {
 		
 		void set_value(unsigned char* value) {
 			if (!empty) {
-				delete[] value;
+				if (strcmp(this->type, "string\0") == 0) {
+					delete[] value;
+				}
+				
 			}
 			if (strcmp(this->type, "string\0")==0) {
 				this->value = new unsigned char[strlen((char*)value)+1];
@@ -59,6 +62,16 @@ class Cell {
 		Cell() {
 			this->empty = true;
 		}
+		void clear() {
+			if (!this->empty) {
+				
+				if (strcmp(this->type, "string\0") == 0) {
+					delete[] value;
+				}
+				
+			}
+			
+		}
 		
 };
 
@@ -69,11 +82,15 @@ class Column {
 		
 		unsigned int n_rows;
 		Cell* cells;
+		bool inited;
 	public:
 		Column() {
-
+			inited = false;
 		}
 		void init(char* name,char* type, unsigned int n_rows) {
+			if (inited) {
+				return;
+			}
 			this->name = new char[strlen(name)+1];
 			this->type = new char[strlen(type)+1];
 			strcpy_s(this->name, strlen(name)+1,name);
@@ -84,6 +101,34 @@ class Column {
 			for (int i = 0; i < this->n_rows; i++) {
 				this->cells[i].set_type(type);
 			}
+			inited = true;
+		}
+
+		void set_name(char* name) {
+			delete[] name;
+			this->name = new char[strlen(name) + 1];
+			strcpy_s(this->name, strlen(name) + 1, name);
+		}
+
+		bool is_inited() {
+			return inited;
+		}
+
+		void clear() {
+			for (int i = 0; i < n_rows; i++) {
+				cells[i].clear();
+			}
+			delete[] cells;
+			n_rows = 0;
+		}
+		void uninit() {
+			if (!inited) {
+				return;
+			}
+			delete[] name;
+			delete[] type;
+			this->clear();
+			inited = false;
 		}
 
 		bool set_value(unsigned int cell, void* value) {
@@ -103,13 +148,13 @@ class Column {
 		}
 
 		void append_cell(unsigned int count) {
-			//n_rows = n_rows + count;
+			
 			Cell* buf = new Cell[this->n_rows+count];
-			unsigned int counter=0;
-			for (unsigned int i=0; i < n_rows; i++) {
-				counter += sizeof(cells[i]);
+			unsigned int counter=n_rows*sizeof(Cell);
+			
+			if (counter != 0) {
+				memcpy(buf, cells, counter);
 			}
-			memcpy(buf, cells, counter);
 			n_rows = n_rows + count;
 			for (unsigned int i = n_rows - count; i < n_rows;i++) {
 				buf[i].set_type(type);
@@ -124,7 +169,6 @@ class Column {
 		char* get_type() {
 			return type;
 		}
-
 	
 
 };
@@ -146,11 +190,11 @@ class DB {
 			this->columns = new Column[this->count_of_columns];
 			
 		}
-		bool init_column(unsigned int count, char* name,char* type) {
-			if (count<0 || count >= count_of_columns) {
+		bool init_column(unsigned int column, char* name,char* type) {
+			if (column <0 || column >= count_of_columns) {
 				return false;
 			}
-			this->columns[count].init(name,type,count_of_rows);
+			this->columns[column].init(name,type,count_of_rows);
 			return true;
 		}
 		void* get_value(unsigned int column, unsigned int row) {
@@ -165,6 +209,7 @@ class DB {
 			}
 			return this->columns[column].set_value(row, value);
 		}
+
 		bool set_value(char* column_name, unsigned int row, void* value) {
 			for (unsigned int i=0; i < count_of_columns; i++) {
 				if (strcmp(column_name, columns[i].get_name()) == 0) {
@@ -173,6 +218,7 @@ class DB {
 			}
 			return false;
 		}
+
 		void* get_value(char* column_name, unsigned int row) {
 			for (unsigned int i=0; i < count_of_columns; i++) {
 				if (strcmp(column_name, columns[i].get_name()) == 0) {
@@ -184,22 +230,63 @@ class DB {
 
 		void append_column(char* column_name, char* type) {
 			Column* buf = new Column[this->count_of_columns + 1];
-			unsigned int counter = 0;
-			for (unsigned int i = 0; i < count_of_columns; i++) {
-				counter += sizeof(columns[i]);
-			}
+			unsigned int counter = sizeof(Column)*count_of_columns;			
 			memcpy(buf, columns, counter);
-			
 			delete[] columns;
+			buf[count_of_columns].init(column_name, type, count_of_rows);
 			columns = buf;
-			this->init_column(count_of_columns,column_name,type);
 			count_of_columns += 1;
-
 		}
 		void append_rows(unsigned int count) {
 			for (unsigned int i = 0; i < count_of_columns; i++) {
 				columns[i].append_cell(count);
 			}
+		}
+
+		void clear_db() {
+			//deletes all entries from all columns
+			count_of_rows = 0;
+			for (unsigned int i = 0; i < count_of_columns; i++) {
+				columns[i].clear();
+			}
+		}
+
+		void uninit_column(unsigned int column, char* name, char* type) {
+			if (column < 0 || column >= count_of_columns) {
+				return;
+			}
+			columns[column].uninit();
+			columns[column].init(name,type,count_of_rows);
+
+		}
+
+		void delete_column(unsigned int column) {
+			columns[column].uninit();
+			if (column < 0 || column >= count_of_columns) {
+				return;
+			}
+											 
+			Column* buf = new Column[this->count_of_columns - 1];
+			unsigned int counter = column* sizeof(Column);
+			
+			if (counter > 0) {
+				memcpy(buf, columns, counter);
+			}
+			counter = sizeof(Column)*(count_of_columns-column-1);
+			
+			if (counter > 0) {
+				memcpy(&buf[column], &columns[column+1], counter);
+			}
+			delete[] columns;
+			columns = buf;
+			count_of_columns -= 1;
+		}
+
+		~DB() {
+			for (unsigned int i = 0; i < count_of_columns; i++) {				
+				columns[i].uninit();
+			}
+			delete[] columns;
 		}
 
 };
@@ -210,17 +297,20 @@ int main()
 	
 	char* name = (char*)"Name\0";
 	char* type = (char*)"integer\0";
-	void* num = (void*)666;
-	DB db(name,4,10);
+	unsigned char* num = new unsigned char[sizeof(int)];
+	num = (unsigned char*)666;
+	DB db(name,4,1000000);
 	db.init_column(0, (char*)"First\0", type);
 	db.init_column(1, (char*)"Second\0", (char*)"string\0");
-	db.init_column(2, (char*)"Third\0", (char*)"long\0");
-	db.init_column(3, (char*)"Fourth\0", (char*)"uint\0");
-	db.set_value((char*)"First\0", 1, num);
+	db.init_column(2, (char*)"Third\0", (char*)"string\0");
+	db.init_column(3, (char*)"Fourth\0", (char*)"integer\0");
+	db.set_value((char*)"First\0", 1, num);	
 	db.set_value((char*)"Second\0", 1, (void*)"Hello\0");
+	db.set_value((char*)"Third\0", 1, (void*)"I'm third!\0");
 	int a = (int)db.get_value((char*)"First\0", 1);
 	char* string = (char*)db.get_value((char*)"Second\0", 1);
-
+	db.append_column((char*)"Fifth\0", type);
+	db.clear_db();
 	std::cout << std::endl;
 }
 
