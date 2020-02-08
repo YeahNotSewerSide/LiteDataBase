@@ -1,4 +1,5 @@
 ﻿#include <iostream>
+#include <fstream>
 
 class Cell {
 	private:
@@ -22,21 +23,21 @@ class Cell {
 			
 			if (strcmp(this->type, "integer\0")==0 || strcmp(this->type, "uinteger\0")==0 || strcmp(this->type, "float\0")==0) {
 				this->value = new unsigned char[sizeof(int)];
-				memcpy(&this->value, &value, sizeof(int));
+				memcpy(this->value, value, sizeof(int));
 			}
 			if (strcmp(this->type, "long\0")==0 || strcmp(this->type, "ulong\0")==0|| strcmp(this->type, "double\0")==0) {
 				this->value = new unsigned char[sizeof(long)];
-				memcpy(&this->value, &value, sizeof(long));
+				memcpy(this->value, value, sizeof(long));
 			}
 			if (strcmp(this->type, "boolean\0") == 0) {
 				this->value = new unsigned char[1];
-				memcpy(&this->value, &value, 1);
+				memcpy(this->value, value, 1);
 			}
 
 			empty = false;
 		}
 		
-		void* get_value() {
+		unsigned char* get_value() {
 			return value;
 		}
 
@@ -114,6 +115,9 @@ class Column {
 			return inited;
 		}
 
+		bool cell_empty(unsigned int cell) {
+			return cells[cell].is_empty();
+		}
 		void clear() {
 			for (int i = 0; i < n_rows; i++) {
 				cells[i].clear();
@@ -139,7 +143,7 @@ class Column {
 			return false;
 		}
 
-		void* get_value(unsigned int cell) {
+		unsigned char* get_value(unsigned int cell) {
 			if (cell >= n_rows || cell < 0) {
 				return false;
 			}
@@ -197,7 +201,7 @@ class DB {
 			this->columns[column].init(name,type,count_of_rows);
 			return true;
 		}
-		void* get_value(unsigned int column, unsigned int row) {
+		unsigned char* get_value(unsigned int column, unsigned int row) {
 			if (column<0 || column >= count_of_columns) {
 				return false;
 			}
@@ -282,6 +286,68 @@ class DB {
 			count_of_columns -= 1;
 		}
 
+
+		bool dump(char* path) {
+			std::ofstream file;
+			char* filename = new char[strlen(name)+6+strlen(path)];
+			memcpy(filename, path, strlen(path));
+			memcpy(&filename[strlen(path)],name, strlen(name));
+			filename[strlen(path)+strlen(name)] = '.';
+			filename[strlen(path) + strlen(name) + 1] = 'd';
+			filename[strlen(path) + strlen(name) + 2] = 'a';
+			filename[strlen(path) + strlen(name) + 3] = 't';
+			filename[strlen(path) + strlen(name) + 4] = 'a';
+			filename[strlen(path) + strlen(name) + 5] = '\0';
+			file.open(filename, std::ios::out | std::ios::binary);
+			if (!file.is_open()) {
+				return false;
+			}
+			file << (unsigned char*)name<<'\0';
+			for (int i = 0; i < sizeof(int); i++) {
+				file << ((unsigned char*)& count_of_columns)[i];
+			}
+			for (int i = 0; i < sizeof(int); i++) {
+				file << ((unsigned char*)& count_of_rows)[i];
+			}
+
+			for (int i = 0; i < count_of_columns; i++) {
+				file << (unsigned char)columns[i].is_inited();
+				if (!columns[i].is_inited()) {
+					continue;
+				}
+				file << (unsigned char*)columns[i].get_name()<<'\0';
+				file << (unsigned char*)columns[i].get_type()<<'\0';
+				for (int n = 0; n < count_of_rows; n++) {
+					file << (unsigned char)columns[i].cell_empty(n);
+					if (columns[i].cell_empty(n)) {
+						continue;
+					}
+					
+					if (strcmp(columns[i].get_type(), "string\0")==0) {
+						file << columns[i].get_value(n);
+						
+					}
+					if (strcmp(columns[i].get_type(), "integer\0") == 0 || strcmp(columns[i].get_type(), "uinteger\0") == 0 || strcmp(columns[i].get_type(), "float\0") == 0) {
+						for (int a = 0; a < sizeof(int); a++) {
+							file << this->get_value(i,n)[a];
+						}
+					}
+					if (strcmp(columns[i].get_type(), "long\0") == 0 || strcmp(columns[i].get_type(), "ulong\0") == 0 || strcmp(columns[i].get_type(), "double\0") == 0) {
+						for (int a = 0; a < sizeof(long); a++) {
+							file << this->get_value(i, n)[a];
+						}
+					}
+					if (strcmp(columns[i].get_type(), "boolean\0") == 0) {
+						file << *this->get_value(i, n);
+					}
+				}
+				
+			}
+			file.close();
+			delete[] filename;
+			return true;
+		}
+
 		~DB() {
 			for (unsigned int i = 0; i < count_of_columns; i++) {				
 				columns[i].uninit();
@@ -297,9 +363,13 @@ int main()
 	
 	char* name = (char*)"Name\0";
 	char* type = (char*)"integer\0";
+	int input = 666;
 	unsigned char* num = new unsigned char[sizeof(int)];
-	num = (unsigned char*)666;
-	DB db(name,4,1000000);
+	num[0] = input & 0xFF;
+	num[1] = (input >> 8) & 0xFF;
+	num[2] = (input >> 16) & 0xFF;
+	num[3] = (input >> 24) & 0xFF;
+	DB db(name,4,10);
 	db.init_column(0, (char*)"First\0", type);
 	db.init_column(1, (char*)"Second\0", (char*)"string\0");
 	db.init_column(2, (char*)"Third\0", (char*)"string\0");
@@ -310,7 +380,8 @@ int main()
 	int a = (int)db.get_value((char*)"First\0", 1);
 	char* string = (char*)db.get_value((char*)"Second\0", 1);
 	db.append_column((char*)"Fifth\0", type);
-	db.clear_db();
+	bool b = db.dump((char*)"C:\\Users\\User\\Desktop\\GitHub\\TwoDimensionDynamicArray\\x64\\Debug\\\0");
+	//db.clear_db();
 	std::cout << std::endl;
 }
 
