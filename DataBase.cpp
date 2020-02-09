@@ -12,7 +12,7 @@ class Cell {
 		void set_value(unsigned char* value) {
 			if (!empty) {
 				if (strcmp(this->type, "string\0") == 0) {
-					delete[] value;
+					delete[] this->value;
 				}
 				
 			}
