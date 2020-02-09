@@ -323,7 +323,7 @@ class DB {
 				}
 				file << (unsigned char*)columns[i].get_name()<<'\0';
 				file << (unsigned char*)columns[i].get_type()<<'\0';
-				for (int n = 0; n < count_of_rows; n++) {
+				for (unsigned int n = 0; n < count_of_rows; n++) {
 					file << (unsigned char)columns[i].cell_empty(n);
 					if (columns[i].cell_empty(n)) {
 						continue;
