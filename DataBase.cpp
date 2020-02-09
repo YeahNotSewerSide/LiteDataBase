@@ -99,8 +99,8 @@ class Column {
 			this->n_rows = n_rows;
 			
 			this->cells = new Cell[this->n_rows];
-			for (int i = 0; i < this->n_rows; i++) {
-				this->cells[i].set_type(type);
+			for (unsigned int i = 0; i < this->n_rows; i++) {
+				this->cells[i].set_type(this->type);
 			}
 			inited = true;
 		}
@@ -119,7 +119,7 @@ class Column {
 			return cells[cell].is_empty();
 		}
 		void clear() {
-			for (int i = 0; i < n_rows; i++) {
+			for (unsigned int i = 0; i < n_rows; i++) {
 				cells[i].clear();
 			}
 			delete[] cells;
@@ -185,6 +185,7 @@ class DB {
 		unsigned int count_of_columns;
 		char* name;
 		Column* columns;
+		bool inited;
 	public:
 		DB(char* name, unsigned int count_of_columns, unsigned int count_of_rows) {
 			this->name = new char[strlen(name) + 1];
@@ -192,8 +193,13 @@ class DB {
 			this->count_of_columns = count_of_columns;
 			this->count_of_rows = count_of_rows;
 			this->columns = new Column[this->count_of_columns];
-			
+			inited = true;
 		}
+
+		DB() {
+			inited = false;
+		}
+
 		bool init_column(unsigned int column, char* name,char* type) {
 			if (column <0 || column >= count_of_columns) {
 				return false;
@@ -310,7 +316,7 @@ class DB {
 				file << ((unsigned char*)& count_of_rows)[i];
 			}
 
-			for (int i = 0; i < count_of_columns; i++) {
+			for (unsigned int i = 0; i < count_of_columns; i++) {
 				file << (unsigned char)columns[i].is_inited();
 				if (!columns[i].is_inited()) {
 					continue;
@@ -324,7 +330,7 @@ class DB {
 					}
 					
 					if (strcmp(columns[i].get_type(), "string\0")==0) {
-						file << columns[i].get_value(n);
+						file << columns[i].get_value(n)<<'\0';
 						
 					}
 					if (strcmp(columns[i].get_type(), "integer\0") == 0 || strcmp(columns[i].get_type(), "uinteger\0") == 0 || strcmp(columns[i].get_type(), "float\0") == 0) {
@@ -348,6 +354,107 @@ class DB {
 			return true;
 		}
 
+		bool is_inited() {
+			return inited;
+		}
+
+		bool load(char* path) {
+			if (inited) {
+				return false;
+			}
+			std::ifstream file;
+			file.open(path, std::ios::binary);
+			if (!file.is_open()) {
+				return false;
+			}
+
+			char* ch = new char[1];//!!!!!!!!!!!!!!!!!!!!!!!
+			unsigned int len=0;
+			ch[0] = 'a';
+			while (ch[0]!='\0') {
+				file.read(ch,1);
+				len++;				
+			}
+			this->name = new char[len];//!!!!!!!!!!!!!!!!!!!!!!!
+			file.seekg(0,std::ios_base::beg);
+			file.read(name,len);
+						
+			file.read((char*)&count_of_columns, 4);	
+			this->columns = new Column[this->count_of_columns];//!!!!!!!!!!!!!!!!!!!!!!!
+			file.read((char*)& count_of_rows, 4);
+			bool column_inited;
+			unsigned char* column_name;
+			unsigned char* column_type;
+
+			for (unsigned int i = 0; i < count_of_columns; i++) {
+				file.read((char*)&column_inited,1);
+				if (!column_inited) {
+					continue;
+				}
+				len = 0;
+				ch[0] = 'a';
+				while (ch[0] != '\0') {
+					file.read(ch, 1);
+					len++;
+				}
+				column_name = new unsigned char[len];//!!!!!!!!!!!!!!!!!!!!!!!
+				file.seekg((unsigned long)file.tellg()-len, std::ios_base::beg);
+				file.read((char*)column_name, len);
+
+				len = 0;
+				ch[0] = 'a';
+				while (ch[0] != '\0') {
+					file.read(ch, 1);
+					len++;
+				}
+				column_type = new unsigned char[len];//!!!!!!!!!!!!!!!!!!!!!!!
+				file.seekg((unsigned long)file.tellg() - len, std::ios_base::beg);
+				file.read((char*)column_type, len);
+
+				columns[i].init((char*)column_name, (char*)column_type,count_of_rows);
+
+				delete[] column_name;
+				delete[] column_type;
+				for (unsigned int n = 0; n < count_of_rows; n++) {
+					file.read((char*)& column_inited, 1);
+					if (column_inited) {
+						continue;
+					}
+					if (strcmp(columns[i].get_type(), "string\0") == 0) {
+						len = 0;
+						ch[0] = 'a';
+						while (ch[0] != '\0') {
+							file.read(ch, 1);
+							len++;
+						}
+						column_name = new unsigned char[len];//!!!!!!!!!!!!!!!!!!!!!!!
+						file.seekg((unsigned long)file.tellg() - len, std::ios_base::beg);
+						file.read((char*)column_name, len);
+						
+					}
+					if (strcmp(columns[i].get_type(), "integer\0") == 0 || strcmp(columns[i].get_type(), "uinteger\0") == 0 || strcmp(columns[i].get_type(), "float\0") == 0) {
+						column_name = new unsigned char[sizeof(int)];//!!!!!!!!!!!!!!!!!!!!!!!
+						file.read((char*)column_name, sizeof(int));
+					}
+					if (strcmp(columns[i].get_type(), "long\0") == 0 || strcmp(columns[i].get_type(), "ulong\0") == 0 || strcmp(columns[i].get_type(), "double\0") == 0) {
+						column_name = new unsigned char[sizeof(long)];//!!!!!!!!!!!!!!!!!!!!!!!
+						file.read((char*)column_name, sizeof(long));
+					}
+					if (strcmp(columns[i].get_type(), "boolean\0") == 0) {
+						column_name = new unsigned char[sizeof(bool)];//!!!!!!!!!!!!!!!!!!!!!!!
+						file.read((char*)column_name, sizeof(bool));
+					}
+					columns[i].set_value(n, column_name);
+					delete[] column_name;
+
+				}
+				
+			
+			}
+			delete[] ch;
+			inited = true;
+		}
+
 		~DB() {
 			for (unsigned int i = 0; i < count_of_columns; i++) {				
 				columns[i].uninit();
@@ -360,8 +467,9 @@ class DB {
 
 int main()
 {
-	
-	char* name = (char*)"Name\0";
+	DB db;
+	db.load((char*)"C:\\Users\\User\\Desktop\\GitHub\\TwoDimensionDynamicArray\\x64\\Debug\\Name.data\0");
+	/*char* name = (char*)"Name\0";
 	char* type = (char*)"integer\0";
 	int input = 666;
 	unsigned char* num = new unsigned char[sizeof(int)];
@@ -377,11 +485,12 @@ int main()
 	db.set_value((char*)"First\0", 1, num);	
 	db.set_value((char*)"Second\0", 1, (void*)"Hello\0");
 	db.set_value((char*)"Third\0", 1, (void*)"I'm third!\0");
-	int a = (int)db.get_value((char*)"First\0", 1);
+	int a = *(int*)db.get_value((char*)"First\0", 1);
 	char* string = (char*)db.get_value((char*)"Second\0", 1);
 	db.append_column((char*)"Fifth\0", type);
 	bool b = db.dump((char*)"C:\\Users\\User\\Desktop\\GitHub\\TwoDimensionDynamicArray\\x64\\Debug\\\0");
-	//db.clear_db();
+	db.clear_db();*/
+	int a = *(int*)db.get_value((char*)"First\0", 1);
 	std::cout << std::endl;
 }
 
