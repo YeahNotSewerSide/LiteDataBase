@@ -66,9 +66,9 @@ class Cell {
 		void clear() {
 			if (!this->empty) {
 				
-				if (strcmp(this->type, "string\0") == 0) {
-					delete[] value;
-				}
+				
+				delete[] value;
+				
 				
 			}
 			
