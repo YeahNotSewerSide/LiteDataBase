@@ -10,13 +10,11 @@ class Cell {
 	public:
 		
 		void set_value(unsigned char* value) {
-			if (!empty) {
-				if (strcmp(this->type, "string\0") == 0) {
+			
+			if (strcmp(this->type, "string\0")==0) {
+				if (!empty) {
 					delete[] this->value;
 				}
-				
-			}
-			if (strcmp(this->type, "string\0")==0) {
 				this->value = new unsigned char[strlen((char*)value)+1];
 				strcpy_s((char*)this->value, strlen((char*)value)+1, (char*)value);
 			}
