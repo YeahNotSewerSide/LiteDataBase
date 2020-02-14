@@ -241,7 +241,7 @@ int main(int argc, char* argv[])
 	root_path = parse_main_path(argv[0]);
 	port = (char*)& DEFAULT_PORT;
 	if (argc >= 3 && strcmp(argv[1],"-p\0")==0) {
-		port = argv[1];
+		port = argv[2];
 	}
 	
 	
