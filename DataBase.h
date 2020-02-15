@@ -390,21 +390,21 @@ public:
 					continue;
 				}
 
-				if (strcmp(columns[i].get_type(), "string\0") == 0) {
+				if (strcmp(columns[i].get_type(), types.str) == 0) {
 					file << columns[i].get_value(n) << '\0';
 
 				}
-				else if (strcmp(columns[i].get_type(), "integer\0") == 0 || strcmp(columns[i].get_type(), "uinteger\0") == 0 || strcmp(columns[i].get_type(), "float\0") == 0) {
+				else if (strcmp(columns[i].get_type(), types.integer) == 0 || strcmp(columns[i].get_type(), types.uinteger) == 0 || strcmp(columns[i].get_type(), types._float) == 0) {
 					for (int a = 0; a < sizeof(int); a++) {
 						file << this->get_value(i, n)[a];
 					}
 				}
-				else if (strcmp(columns[i].get_type(), "double\0") == 0) {
-					for (int a = 0; a < sizeof(double); a++) {
+				else if (strcmp(columns[i].get_type(), types._long) == 0 || strcmp(columns[i].get_type(), types.ulong) == 0 || strcmp(columns[i].get_type(), types._double) == 0) {
+					for (int a = 0; a < sizeof(long); a++) {
 						file << this->get_value(i, n)[a];
 					}
 				}
-				else if (strcmp(columns[i].get_type(), "boolean\0") == 0) {
+				else if (strcmp(columns[i].get_type(), types.boolean) == 0) {
 					file << *this->get_value(i, n);
 				}
 			}
@@ -481,7 +481,7 @@ public:
 				if (column_inited) {
 					continue;
 				}
-				if (strcmp(columns[i].get_type(), "string\0") == 0) {
+				if (strcmp(columns[i].get_type(), types.str) == 0) {
 					len = 0;
 					ch[0] = 'a';
 					while (ch[0] != '\0') {
@@ -493,15 +493,15 @@ public:
 					file.read((char*)column_name, len);
 
 				}
-				else if (strcmp(columns[i].get_type(), "integer\0") == 0 || strcmp(columns[i].get_type(), "uinteger\0") == 0 || strcmp(columns[i].get_type(), "float\0") == 0) {
+				else if (strcmp(columns[i].get_type(), types.integer) == 0 || strcmp(columns[i].get_type(), types.uinteger) == 0 || strcmp(columns[i].get_type(), types._float) == 0) {
 					column_name = new unsigned char[sizeof(int)];//!!!!!!!!!!!!!!!!!!!!!!!
 					file.read((char*)column_name, sizeof(int));
 				}
-				else if (strcmp(columns[i].get_type(), "double\0") == 0) {
-					column_name = new unsigned char[sizeof(double)];//!!!!!!!!!!!!!!!!!!!!!!!
+				else if (strcmp(columns[i].get_type(), types._long) == 0 || strcmp(columns[i].get_type(), types.ulong) == 0 || strcmp(columns[i].get_type(), types._double) == 0) {
+					column_name = new unsigned char[sizeof(long)];//!!!!!!!!!!!!!!!!!!!!!!!
 					file.read((char*)column_name, sizeof(long));
 				}
-				else if (strcmp(columns[i].get_type(), "boolean\0") == 0) {
+				else if (strcmp(columns[i].get_type(), types.boolean) == 0) {
 					column_name = new unsigned char[sizeof(bool)];//!!!!!!!!!!!!!!!!!!!!!!!
 					file.read((char*)column_name, sizeof(bool));
 				}

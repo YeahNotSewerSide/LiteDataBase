@@ -168,11 +168,17 @@ void work_with_db(SOCKET* sock,bool* alive) {
 		}
 		else if (strcmp(packet, "gty\0") == 0) {// get type || gty\0 \x00\x00\x00\x00  name_of_column\0   
 												//			   cmd    number of db		name_of_column	 
-			new_db.lock();
-			new_db.unlock();
+			
 			data = dbs[*(int*)(&packet[4])].get_type(&packet[8]);
 			iResult = send(socket, data, strlen(data)+1, 0);
 		}
+		else if (strcmp(packet, "gbn\0") == 0) {// get db name || gbn\0 \x00\x00\x00\x00
+												//				  cmd    number of db
+			
+			data = dbs[*(int*)(&packet[4])].get_name();
+			iResult = send(socket, data, strlen(data) + 1, 0);
+		}
+		
 		else if (strcmp(packet, "dum\0") == 0) {//dump all dbs
 			new_db.lock();
 			for (unsigned int i = 0; i < dbs_count;i++) {
@@ -198,14 +204,15 @@ void connection_handler() {
 	for (int i = 0; i < MAX_THREADS; i++) {
 		threads_pool_alive[i] = false;
 	}
-	unsigned int working_threads = 0;
+	//unsigned int working_threads = 0;
 	unsigned int available_thread = 0;
 	while (true) {
 		//if (working_threads > 0) {
 			available_thread = 0;
 			while (available_thread < MAX_THREADS) {
 				if (!threads_pool_alive[available_thread]) {
-					working_threads--;
+					
+					//working_threads--;
 					break;
 				}
 				available_thread++;
@@ -226,7 +233,7 @@ void connection_handler() {
 				threads_pool[available_thread].join();
 			}
 			threads_pool[available_thread] = thread(work_with_db,&sock,&threads_pool_alive[available_thread]);
-			working_threads++;
+			//working_threads++;
 		}
 		
 	}
@@ -240,10 +247,43 @@ int main(int argc, char* argv[])
 	char* port;
 	root_path = parse_main_path(argv[0]);
 	port = (char*)& DEFAULT_PORT;
+	char* filename;
+	int offset = 1;
 	if (argc >= 3 && strcmp(argv[1],"-p\0")==0) {
 		port = argv[2];
+		if (argc == 3) {
+			offset = 0;
+		}
+		else {
+			offset = 3;
+		}
 	}
-	
+	bool res;
+	if (argc > 1 && offset != 0 ) {
+		dbs = new DB[argc - offset];
+
+		for (int i = 0; i < (argc - offset); i++) {
+			if (!dbs[i].load(argv[offset + i])) {
+				filename = new char[strlen(root_path) + strlen(argv[offset + i]) + 1];
+				memcpy(filename, root_path, strlen(root_path));
+				memcpy(&filename[strlen(root_path)], argv[offset + i], strlen(argv[offset + i]) + 1);
+				res = dbs[i].load(filename);
+				delete[] filename;
+				if (!res) {
+					cout << argv[offset + i] << " Not found!" << endl;					
+					return 1;
+				}
+				else {
+					
+					cout << "DB " << argv[offset + i] << " Loaded" << endl;
+				}
+			}
+			else {
+				cout << "DB " << argv[offset + i] << " Loaded" << endl;
+			}
+			
+		}
+	}
 	
 
 	WSADATA wsaData;

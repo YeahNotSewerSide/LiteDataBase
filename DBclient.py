@@ -78,7 +78,23 @@ class DB:
         elif value_type == types[7]:
              data= unpack('b',received)
 
-        return data
+        return data[0]
+
+    def get_type(self,number_of_db:int,column_name:str):
+        packet = b'gty\0'+pack('I',number_of_db)+bytes(column_name,'utf-8')
+        size = pack('I',len(packet))
+        self.socket.send(size)
+        self.socket.send(packet)
+        dt = self.socket.recv(100)
+        return dt[:-1].decode('utf-8')
+    
+    def get_db_name(self,number_of_db:int):
+        packet = b'gbn\0'+pack('I',number_of_db)
+        size = pack('I',len(packet))
+        self.socket.send(size)
+        self.socket.send(packet)
+        dt = self.socket.recv(100)
+        return dt[:-1].decode('utf-8')
 
     def dump(self):
         packet = b'dum\0'
@@ -94,17 +110,14 @@ class DB:
 if __name__ == '__main__':
    db = DB('127.0.0.1',666)
    db.connect()
-   db.create_db('Name',2,1000)
-   db.init_column(0,0,'First','integer')
-   db.init_column(0,1,'Second','integer')
+   #db.create_db('Name',2,1000000)
+   #db.init_column(0,0,'First','integer')
+   #db.init_column(0,1,'Second','integer')
    nu = 666
-   while True:
-       tm = time.time()
-       db.set_value(0,'First',0,'integer',nu)
-       num = db.get_value(0,'First',0,'integer')
-       print(time.time()-tm)
-       time.sleep(0.5)
-       nu += 1
-   db.dump()
+   for i in range(1000000):
+       db.set_value(0,'First',i,'integer',i)
+       db.set_value(0,'Second',i,'integer',i)
+       
+   #db.dump()
    db.close()
-   print(num)
+   #print(num)
