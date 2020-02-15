@@ -3,8 +3,13 @@ DataBase.h - header file with core of DB.
 
 DataBase.cpp - server for DB, uses new threads for every new user
 
-Now it can do only very basic things, but soon I'll implement auto restoration DB from harddrive, and another convinient functionality.
-
-That DB doesn't have any protection, because main purpose of that DB is speed.
-
+Args:
+  -p <port> - specify port for bd server(always must be first argument)
+  If you want to load dbs from dumps just write:
+  DataBase.exe "path_to_dump\DataBase.data" or
+  DataBase.exe DataBase.data if DataBase.data in the same folder with DataBase.exe
+  Ex:
+  DataBase.exe -p 6969 "path_to_dump\DataBase.data" MyNewSuperDB.data
+  DataBase.exe MyNewSuperDB.data
+  
 Now it's only for Windows.
