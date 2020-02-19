@@ -39,9 +39,9 @@ class DB:
         elif value_type == types[3]:
              packet+= pack('f',value)
         elif value_type == types[4]:
-             packet+= pack('l',value)
+             packet+= pack('q',value)
         elif value_type == types[5]:
-             packet+= pack('L',value)
+             packet+= pack('Q',value)
         elif value_type == types[6]:
              packet+= pack('d',value)
         elif value_type == types[7]:
@@ -70,9 +70,9 @@ class DB:
         elif value_type == types[3]:
              data= unpack('f',received)
         elif value_type == types[4]:
-             data= unpack('l',received)
+             data= unpack('q',received)
         elif value_type == types[5]:
-             data= unpack('L',received)
+             data= unpack('Q',received)
         elif value_type == types[6]:
              data= unpack('d',received)
         elif value_type == types[7]:
@@ -110,14 +110,21 @@ class DB:
 if __name__ == '__main__':
    db = DB('127.0.0.1',666)
    db.connect()
-   #db.create_db('Name',2,1000000)
-   #db.init_column(0,0,'First','integer')
+   
+   #db.create_db('Name',3,1000000)
+   #db.init_column(0,0,'First','string')
    #db.init_column(0,1,'Second','integer')
-   nu = 666
-   for i in range(1000000):
-       db.set_value(0,'First',i,'integer',i)
-       db.set_value(0,'Second',i,'integer',i)
+   #db.init_column(0,2,'Third','long')
+   #nu = 666
+   #start = 0
+   #for i in range(start,1000000):
        
-   #db.dump()
+   #    db.set_value(0,'First',i,'string','NAMENAMENAMENAMENAMENAMENAMENAMENAMENAMENAMENAMENAMENAME')
+   #    db.set_value(0,'Second',i,'integer',i)
+   #    db.set_value(0,'Third',i,'long',i)
+
+   #value = db.get_value(0,'Third',999,'long')
+   #print(value)  
+   db.dump()
    db.close()
    #print(num)

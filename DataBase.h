@@ -38,17 +38,38 @@ public:
 		}
 		else if (strcmp(type, types._long) == 0 || strcmp(type, types.ulong) == 0 || strcmp(type, types._double) == 0) {
 			if (empty) {
-				this->value = new unsigned char[sizeof(long)];
+				this->value = new unsigned char[sizeof(long long)];
 			}
-			memcpy(this->value, value, sizeof(long));
+			memcpy(this->value, value, sizeof(long long));
 		}
-		else if (strcmp(type, types._double) == 0) {
+		else if (strcmp(type, types.boolean) == 0) {
 			if (empty) {
 				this->value = new unsigned char[1];
 			}
 			memcpy(this->value, value, 1);
 		}
 		empty = false;
+	}
+
+	unsigned int get_size(char* type) {
+		
+		if (empty) {
+			return 0;
+		}
+
+		if (strcmp(type, types.str) == 0) {
+			return strlen((char*)value);
+		}
+
+		else if (strcmp(type, types.integer) == 0 || strcmp(type, types.uinteger) == 0 || strcmp(type, types._float) == 0) {
+			return sizeof(int);
+		}
+		else if (strcmp(type, types._long) == 0 || strcmp(type, types.ulong) == 0 || strcmp(type, types._double) == 0) {
+			return sizeof(long);
+		}
+		else if (strcmp(type, types.boolean) == 0) {
+			return sizeof(bool);
+		}
 	}
 
 	unsigned char* get_value() {
@@ -116,6 +137,10 @@ public:
 		strcpy_s(this->name, strlen(name) + 1, name);
 	}
 
+	unsigned int get_size(unsigned int row) {
+		return cells[row].get_size(type);
+	}
+
 	bool is_inited() {
 		return inited;
 	}
@@ -169,6 +194,9 @@ public:
 		delete[] cells;
 		cells = buf;
 	}
+	bool is_cell_empty(unsigned int cell) {
+		return cells[cell].is_empty();
+	}
 
 	char* get_name() {
 		return name;
@@ -211,6 +239,31 @@ public:
 		this->count_of_rows = count_of_rows;
 		this->columns = new Column[this->count_of_columns];
 		inited = true;
+	}
+
+	unsigned int get_size(char* column_name, unsigned int row) {
+		if (row >= count_of_rows || row < 0) {
+			return 0;
+		}
+		for (unsigned int i = 0; i < count_of_columns; i++) {
+			if (strcmp(column_name, columns[i].get_name()) == 0) {
+				return this->columns[i].get_size(row);
+			}
+		}
+		return 0;
+	}
+
+	unsigned int get_size(unsigned int column, unsigned int row) {
+		return this->columns[column].get_size(row);
+	}
+
+	bool cell_is_empty(char* column_name, unsigned int row) {
+		for (unsigned int i = 0; i < count_of_columns; i++) {
+			if (strcmp(column_name, columns[i].get_name()) == 0) {
+				return this->columns[i].is_cell_empty(row);
+			}
+		}
+		return true;
 	}
 
 	bool init_column(unsigned int column, char* name, char* type) {
@@ -353,6 +406,13 @@ public:
 		count_of_columns -= 1;
 	}
 
+	unsigned int get_count_of_rows() {
+		return count_of_rows;
+	}
+
+	unsigned int get_count_of_columns() {
+		return count_of_columns;
+	}
 
 	bool dump(char* path) {
 		std::ofstream file;
@@ -365,7 +425,8 @@ public:
 		filename[strlen(path) + strlen(name) + 3] = 't';
 		filename[strlen(path) + strlen(name) + 4] = 'a';
 		filename[strlen(path) + strlen(name) + 5] = '\0';
-		file.open(filename, std::ios::out | std::ios::binary);
+		file.open(filename, std::ios::binary);
+		bool* empty = new bool[1];
 		if (!file.is_open()) {
 			return false;
 		}
@@ -382,27 +443,26 @@ public:
 			if (!columns[i].is_inited()) {
 				continue;
 			}
-			file << (unsigned char*)columns[i].get_name() << '\0';
-			file << (unsigned char*)columns[i].get_type() << '\0';
+			file.write((char*)columns[i].get_name(), strlen(columns[i].get_name())+1);
+			
+			file.write((char*)columns[i].get_type(), strlen(columns[i].get_type()) + 1);
 			for (size_t n = 0; n < count_of_rows; n++) {
-				file << (unsigned char)columns[i].cell_empty(n);
-				if (columns[i].cell_empty(n)) {
+				empty[0] = columns[i].cell_empty(n);
+				file.write((char*)empty,1);
+				if (empty[0]) {					
 					continue;
 				}
+				
 
 				if (strcmp(columns[i].get_type(), types.str) == 0) {
 					file << columns[i].get_value(n) << '\0';
 
 				}
 				else if (strcmp(columns[i].get_type(), types.integer) == 0 || strcmp(columns[i].get_type(), types.uinteger) == 0 || strcmp(columns[i].get_type(), types._float) == 0) {
-					for (int a = 0; a < sizeof(int); a++) {
-						file << this->get_value(i, n)[a];
-					}
+					file.write((char*)this->get_value(i, n), sizeof(int));
 				}
 				else if (strcmp(columns[i].get_type(), types._long) == 0 || strcmp(columns[i].get_type(), types.ulong) == 0 || strcmp(columns[i].get_type(), types._double) == 0) {
-					for (int a = 0; a < sizeof(long); a++) {
-						file << this->get_value(i, n)[a];
-					}
+					file.write((char*)this->get_value(i, n), sizeof(long long));
 				}
 				else if (strcmp(columns[i].get_type(), types.boolean) == 0) {
 					file << *this->get_value(i, n);
@@ -410,6 +470,8 @@ public:
 			}
 
 		}
+		delete[] empty;
+		//file << "\r\n\0";
 		file.close();
 		delete[] filename;
 		return true;

@@ -135,6 +135,28 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			dbs[*(int*)(&packet[4])].set_value(&packet[8], *(unsigned int*)(&packet[8+strlen(&packet[8]) + 1]), &packet[8+strlen(&packet[8]) + 5]);
 			new_db.unlock();
 		}
+		else if (strcmp(packet, "gro\0") == 0) {// get whole row || gro\0 \x00\x00\x00\x00    \x00\x00\x00\x00
+												//				    cmd        number of db	   row
+			size_t size = 0;
+			for (unsigned int i=0; i < dbs[*(int*)(&packet[4])].get_count_of_columns(); i++) {
+				size = size + dbs[*(int*)(&packet[4])].get_size(i, *(int*)(&packet[8]));
+			}
+
+			char* data; 
+			iResult = send(socket, (char*)& size, sizeof(size), 0);
+			if (iResult > 0) {
+				data = new char[size];
+				size_t spec_counter = 0;
+				for (unsigned int i=0; i < dbs[*(int*)(&packet[4])].get_count_of_columns(); i++) {
+					memcpy(&data[spec_counter], dbs[*(int*)(&packet[4])].get_value(i, *(int*)(&packet[8])), dbs[*(int*)(&packet[4])].get_size(i, *(int*)(&packet[8])));
+					spec_counter += dbs[*(int*)(&packet[4])].get_size(i, *(int*)(&packet[8]));
+				}
+				iResult = send(socket, data, size, 0);
+				delete[] data;
+			}
+
+
+		}
 		else if (strcmp(packet, "gva\0") == 0) {// get value || gva\0 \x00\x00\x00\x00  name_of_column\0  \x00\x00\x00\x00  
 												//				cmd    number of db		name_of_column	  cell number
 			if (*(int*)(&packet[4]) >= dbs_count || *(int*)(&packet[4]) < 0) {
@@ -145,23 +167,32 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			char* data;
 			new_db.lock();
 			new_db.unlock();
-			data = (char*)dbs[*(int*)(&packet[4])].get_value(&packet[8], *(unsigned int*)(&packet[packet_size - 4]));
-			type = dbs[*(int*)(&packet[4])].get_type(&packet[8]);
-			if (strcmp(type,types.str)==0) {
-				size = strlen(data)+1;
+			if (dbs[*(int*)(&packet[4])].cell_is_empty(&packet[8], *(unsigned int*)(&packet[packet_size - 4]))) {
+				data = new char[1];
+				data[0] = '\0';
+				iResult = send(socket, data, 1, 0);
+				delete[] data;
+				
 			}
-			else if(strcmp(type, types.integer)==0 || strcmp(type, types.uinteger) == 0 || strcmp(type, types._float) == 0){
-				size = sizeof(int);
-			}
-			else if (strcmp(type, types._long) == 0 || strcmp(type, types.ulong) == 0 || strcmp(type, types._double) == 0) {
-				size = sizeof(long);
-			}
-			if (strcmp(type, types.boolean) == 0) {
-				size = 1;
-			}
-			iResult = send(socket, (char*)&size, 4, 0);
-			if (iResult > 0) {
-				iResult = send(socket, data, size, 0);
+			else {
+				data = (char*)dbs[*(int*)(&packet[4])].get_value(&packet[8], *(unsigned int*)(&packet[packet_size - 4]));
+				type = dbs[*(int*)(&packet[4])].get_type(&packet[8]);
+				if (strcmp(type, types.str) == 0) {
+					size = strlen(data) + 1;
+				}
+				else if (strcmp(type, types.integer) == 0 || strcmp(type, types.uinteger) == 0 || strcmp(type, types._float) == 0) {
+					size = sizeof(int);
+				}
+				else if (strcmp(type, types._long) == 0 || strcmp(type, types.ulong) == 0 || strcmp(type, types._double) == 0) {
+					size = sizeof(long long);
+				}
+				if (strcmp(type, types.boolean) == 0) {
+					size = 1;
+				}
+				iResult = send(socket, (char*)& size, 4, 0);
+				if (iResult > 0) {
+					iResult = send(socket, data, size, 0);
+				}
 			}
 						
 			
