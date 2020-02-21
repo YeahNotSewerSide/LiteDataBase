@@ -292,7 +292,7 @@ int main(int argc, char* argv[])
 	bool res;
 	if (argc > 1 && offset != 0 ) {
 		dbs = new DB[argc - offset];
-
+		dbs_count = argc - offset;
 		for (int i = 0; i < (argc - offset); i++) {
 			if (!dbs[i].load(argv[offset + i])) {
 				filename = new char[strlen(root_path) + strlen(argv[offset + i]) + 1];

@@ -560,8 +560,8 @@ public:
 					file.read((char*)column_name, sizeof(int));
 				}
 				else if (strcmp(columns[i].get_type(), types._long) == 0 || strcmp(columns[i].get_type(), types.ulong) == 0 || strcmp(columns[i].get_type(), types._double) == 0) {
-					column_name = new unsigned char[sizeof(long)];//!!!!!!!!!!!!!!!!!!!!!!!
-					file.read((char*)column_name, sizeof(long));
+					column_name = new unsigned char[sizeof(long long)];//!!!!!!!!!!!!!!!!!!!!!!!
+					file.read((char*)column_name, sizeof(long long));
 				}
 				else if (strcmp(columns[i].get_type(), types.boolean) == 0) {
 					column_name = new unsigned char[sizeof(bool)];//!!!!!!!!!!!!!!!!!!!!!!!
