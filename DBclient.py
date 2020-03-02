@@ -80,6 +80,106 @@ class DB:
 
         return data[0]
 
+    def get_row(self,number_of_db:int,row_number:int,typesI:list):
+        packet = b'gro\0'+pack('I',number_of_db)+pack('I',row_number)
+        size = pack('I',len(packet))
+        self.socket.send(size)
+        self.socket.send(packet)
+        dt = self.socket.recv(8)
+        v_size = unpack('Q',dt)[0]
+        received = self.socket.recv(v_size)
+        data = []
+        offset = 0
+        for type in typesI:
+            if type == types[0]:
+                for i in range(offset,v_size):
+                    if received[i] == 0:
+                        data.append(received[offset:i].decode('utf-8'))
+                        offset = offset + i+1
+                        break
+                 #data.append(received[:-1].decode('utf-8'))
+            elif type == types[1]:
+                 data.append(unpack('i',received[offset:offset+4])[0])
+                 offset+=4
+            elif type == types[2]:
+                 data.append(unpack('I',received[offset:offset+4])[0])
+                 offset+=4
+            elif type == types[3]:
+                 data.append(unpack('f',received[offset:offset+4])[0])
+                 offset+=4
+            elif type == types[4]:
+                 data.append(unpack('q',received[offset:offset+8])[0])
+                 offset+=8
+            elif type == types[5]:
+                 data.append(unpack('Q',received[offset:offset+8])[0])
+                 offset+=8
+            elif type == types[6]:
+                 data.append(unpack('d',received[offset:offset+8])[0])
+                 offset+=8
+            elif type == types[7]:
+                 data.append(unpack('b',received[offset:offset+1])[0])
+                 offset+=1
+        return data
+
+    def where(self,number_of_db:int,column_name,value,value_type,typesI:list):
+        packet = b'whe\0'+pack('I',number_of_db)+bytes(column_name,'utf-8')
+        if value_type == types[0]:
+             packet+=bytes(value,'utf-8')+b'\0'
+        elif value_type == types[1]:
+             packet+= pack('i',value)
+        elif value_type == types[2]:
+             packet+= pack('I',value)
+        elif value_type == types[3]:
+             packet+= pack('f',value)
+        elif value_type == types[4]:
+             packet+= pack('q',value)
+        elif value_type == types[5]:
+             packet+= pack('Q',value)
+        elif value_type == types[6]:
+             packet+= pack('d',value)
+        elif value_type == types[7]:
+             packet+= pack('b',value)
+
+        size = pack('I',len(packet))
+        self.socket.send(size)
+        self.socket.send(packet)
+
+        dt = self.socket.recv(8)
+        v_size = unpack('Q',dt)[0]
+        received = self.socket.recv(v_size)
+        data = []
+        offset = 0
+        for type in typesI:
+            if type == types[0]:
+                for i in range(offset,v_size):
+                    if received[i] == 0:
+                        data.append(received[offset:i].decode('utf-8'))
+                        offset = offset + i+1
+                        break
+                 #data.append(received[:-1].decode('utf-8'))
+            elif type == types[1]:
+                 data.append(unpack('i',received[offset:offset+4])[0])
+                 offset+=4
+            elif type == types[2]:
+                 data.append(unpack('I',received[offset:offset+4])[0])
+                 offset+=4
+            elif type == types[3]:
+                 data.append(unpack('f',received[offset:offset+4])[0])
+                 offset+=4
+            elif type == types[4]:
+                 data.append(unpack('q',received[offset:offset+8])[0])
+                 offset+=8
+            elif type == types[5]:
+                 data.append(unpack('Q',received[offset:offset+8])[0])
+                 offset+=8
+            elif type == types[6]:
+                 data.append(unpack('d',received[offset:offset+8])[0])
+                 offset+=8
+            elif type == types[7]:
+                 data.append(unpack('b',received[offset:offset+1])[0])
+                 offset+=1
+        return data
+
     def get_type(self,number_of_db:int,column_name:str):
         packet = b'gty\0'+pack('I',number_of_db)+bytes(column_name,'utf-8')
         size = pack('I',len(packet))
@@ -123,8 +223,10 @@ if __name__ == '__main__':
    #    db.set_value(0,'Second',i,'integer',i)
    #    db.set_value(0,'Third',i,'long',i)
 
+   #db.set_value(0,'Third',999,'long',666224)
    #value = db.get_value(0,'Third',999,'long')
-   #print(value)  
+   value = db.where(0,'Second\0',999999,'integer',['string','integer','long'])
+   print(value)  
    db.dump()
    db.close()
    #print(num)

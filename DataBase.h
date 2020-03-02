@@ -58,14 +58,14 @@ public:
 		}
 
 		if (strcmp(type, types.str) == 0) {
-			return strlen((char*)value);
+			return strlen((char*)value)+1;
 		}
 
 		else if (strcmp(type, types.integer) == 0 || strcmp(type, types.uinteger) == 0 || strcmp(type, types._float) == 0) {
 			return sizeof(int);
 		}
 		else if (strcmp(type, types._long) == 0 || strcmp(type, types.ulong) == 0 || strcmp(type, types._double) == 0) {
-			return sizeof(long);
+			return sizeof(long long);
 		}
 		else if (strcmp(type, types.boolean) == 0) {
 			return sizeof(bool);
@@ -574,6 +574,57 @@ public:
 		}
 		delete[] ch;
 		inited = true;
+	}
+
+	
+
+	unsigned int where(char* column_name,unsigned char* data) {//returns row number
+		unsigned int row = 0;
+		if (strcmp(get_type(column_name),types.str) == 0) {
+			for (unsigned int i = 0; i < this->count_of_rows; i++) {
+				if (strcmp((char*)get_value(column_name, i), (char*)data) == 0) {
+					row = i;
+					break;
+				}
+			}
+			if (row == 0 && strcmp((char*)get_value(column_name, row), (char*)data) != 0) {
+				throw 25;
+			}
+		}
+		else if (strcmp(get_type(column_name), types.integer) == 0 || strcmp(get_type(column_name), types.uinteger) == 0 || strcmp(get_type(column_name), types._float) == 0) {
+			for (unsigned int i = 0; i < this->count_of_rows; i++) {
+				if (((unsigned char*)get_value(column_name, i))[0] == data[0] && ((unsigned char*)get_value(column_name, i))[1] == data[1] && ((unsigned char*)get_value(column_name, i))[2] == data[2] && ((unsigned char*)get_value(column_name, i))[3] == data[3]) {
+					row = i;
+					break;
+				}
+			}
+			if (row ==0 && (((unsigned char*)get_value(column_name, row))[0] != data[0] && ((unsigned char*)get_value(column_name, row))[1] != data[1] && ((unsigned char*)get_value(column_name, row))[2] != data[2] && ((unsigned char*)get_value(column_name, row))[3] != data[3])) {
+				throw 25;
+			}
+		}
+		else if (strcmp(get_type(column_name), types._long) == 0 || strcmp(get_type(column_name), types.ulong) == 0 || strcmp(get_type(column_name), types._double) == 0) {
+			for (unsigned int i = 0; i < this->count_of_rows; i++) {
+				if (((unsigned char*)get_value(column_name, i))[0] == data[0] && ((unsigned char*)get_value(column_name, i))[1] == data[1] && ((unsigned char*)get_value(column_name, i))[2] == data[2] && ((unsigned char*)get_value(column_name, i))[3] == data[3] && ((unsigned char*)get_value(column_name, i))[4] == data[4] && ((unsigned char*)get_value(column_name, i))[5] == data[5] && ((unsigned char*)get_value(column_name, i))[6] == data[6] && ((unsigned char*)get_value(column_name, i))[7] == data[7]) {
+					row = i;
+					break;
+				}
+			}
+			if (row == 0 && (((unsigned char*)get_value(column_name, row))[0] != data[0] && ((unsigned char*)get_value(column_name, row))[1] != data[1] && ((unsigned char*)get_value(column_name, row))[2] != data[2] && ((unsigned char*)get_value(column_name, row))[3] != data[3] && ((unsigned char*)get_value(column_name, row))[4] != data[4] && ((unsigned char*)get_value(column_name, row))[5] != data[5] && ((unsigned char*)get_value(column_name, row))[6] != data[6] && ((unsigned char*)get_value(column_name, row))[7] != data[7])) {
+				throw 25;
+			}
+		}
+		else if (strcmp(get_type(column_name), types.boolean) == 0) {
+			for (unsigned int i = 0; i < this->count_of_rows; i++) {
+				if (((unsigned char*)get_value(column_name, i))[0] == data[0]) {
+					row = i;
+					break;
+				}
+			}
+			if (row == 0 && (((unsigned char*)get_value(column_name, row))[0] != data[0] )) {
+				throw 25;
+			}
+		}
+		return row;
 	}
 
 	char* get_name() {

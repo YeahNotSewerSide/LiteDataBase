@@ -27,6 +27,7 @@ DB* dbs;
 unsigned int dbs_count = 0;
 
 const char ALREADY_EXISTS[] = "Already exists\0";
+const char nothing[] = "Nothing Found\0";
 
 struct addrinfo* result = NULL, * ptr = NULL, hints ;
 
@@ -139,7 +140,7 @@ void work_with_db(SOCKET* sock,bool* alive) {
 												//				    cmd        number of db	   row
 			size_t size = 0;
 			for (unsigned int i=0; i < dbs[*(int*)(&packet[4])].get_count_of_columns(); i++) {
-				size = size + dbs[*(int*)(&packet[4])].get_size(i, *(int*)(&packet[8]));
+				size = size + dbs[*(unsigned int*)(&packet[4])].get_size(i, *(unsigned int*)(&packet[8]));
 			}
 
 			char* data; 
@@ -150,6 +151,44 @@ void work_with_db(SOCKET* sock,bool* alive) {
 				for (unsigned int i=0; i < dbs[*(int*)(&packet[4])].get_count_of_columns(); i++) {
 					memcpy(&data[spec_counter], dbs[*(int*)(&packet[4])].get_value(i, *(int*)(&packet[8])), dbs[*(int*)(&packet[4])].get_size(i, *(int*)(&packet[8])));
 					spec_counter += dbs[*(int*)(&packet[4])].get_size(i, *(int*)(&packet[8]));
+				}
+				iResult = send(socket, data, size, 0);
+				delete[] data;
+			}
+
+
+		}
+		else if (strcmp(packet, "whe\0") == 0) {// where || whe\0 \x00\x00\x00\x00 name_of_column\0 data
+												//			cmd    number of db		name_of_column
+			if (*(int*)(&packet[4]) >= dbs_count || *(int*)(&packet[4]) < 0) {
+				break;
+			}
+			size_t size = 0;
+			char* data;
+			unsigned int row = 0;
+			new_db.lock();
+			new_db.unlock();
+			try{
+				row = dbs[*(int*)(&packet[4])].where(&packet[8], (unsigned char*)& packet[8] + strlen(&packet[8]) + 1);
+			}
+			catch (int e) {
+				size = 15;
+				iResult = send(socket, (char*)& size, sizeof(size), 0);
+				iResult = send(socket, (char*)&nothing, size, 0);
+			}
+
+			for (unsigned int i = 0; i < dbs[*(int*)(&packet[4])].get_count_of_columns(); i++) {
+				size = size + dbs[*(unsigned int*)(&packet[4])].get_size(i, row);
+			}
+
+			//char* data;
+			iResult = send(socket, (char*)& size, sizeof(size), 0);
+			if (iResult > 0) {
+				data = new char[size];
+				size_t spec_counter = 0;
+				for (unsigned int i = 0; i < dbs[*(int*)(&packet[4])].get_count_of_columns(); i++) {
+					memcpy(&data[spec_counter], dbs[*(int*)(&packet[4])].get_value(i, row), dbs[*(int*)(&packet[4])].get_size(i, row));
+					spec_counter += dbs[*(int*)(&packet[4])].get_size(i, row);
 				}
 				iResult = send(socket, data, size, 0);
 				delete[] data;
