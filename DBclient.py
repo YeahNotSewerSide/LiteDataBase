@@ -121,7 +121,7 @@ class DB:
                  offset+=1
         return data
 
-    def where(self,number_of_db:int,column_name,value,value_type,typesI:list):
+    def where(self,number_of_db:int,column_name,value,value_type,typesI:list):#for unique data
         packet = b'whe\0'+pack('I',number_of_db)+bytes(column_name,'utf-8')
         if value_type == types[0]:
              packet+=bytes(value,'utf-8')+b'\0'
