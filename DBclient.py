@@ -121,7 +121,7 @@ class DB:
                  offset+=1
         return data
 
-    def where(self,number_of_db:int,column_name,value,value_type,typesI:list):#for unique data
+    def where(self,number_of_db:int,column_name,value,value_type,typesI:list):
         packet = b'whe\0'+pack('I',number_of_db)+bytes(column_name,'utf-8')
         if value_type == types[0]:
              packet+=bytes(value,'utf-8')+b'\0'
@@ -201,6 +201,41 @@ class DB:
         size = pack('I',len(packet))
         self.socket.send(size)
         self.socket.send(packet)
+    
+    def exist(self,number_of_db:int,column_name:str,value_type:str,value):
+        if value_type not in types:
+            raise Exception('Unknown type')
+        packet = b'exi\0'+pack('I',number_of_db)+bytes(column_name,'utf-8')+b'\0'
+        if value_type == types[0]:
+             packet+=bytes(value,'utf-8')+b'\0'
+        elif value_type == types[1]:
+             packet+= pack('i',value)
+        elif value_type == types[2]:
+             packet+= pack('I',value)
+        elif value_type == types[3]:
+             packet+= pack('f',value)
+        elif value_type == types[4]:
+             packet+= pack('q',value)
+        elif value_type == types[5]:
+             packet+= pack('Q',value)
+        elif value_type == types[6]:
+             packet+= pack('d',value)
+        elif value_type == types[7]:
+             packet+= pack('b',value)
+        size = pack('I',len(packet))
+        self.socket.send(size)
+        self.socket.send(packet)
+        dt = self.socket.recv(1)
+        if dt == b'\x00':
+            return False
+        else:
+            return True
+       
+    def append_rows(self,number_of_db:int,count:int):
+        packet = b'apr\0'+pack('I',number_of_db)+pack('I',count)
+        size = pack('I',len(packet))
+        self.socket.send(size)
+        self.socket.send(packet)
 
     def close(self):
         self.socket.close()
@@ -210,10 +245,10 @@ class DB:
 if __name__ == '__main__':
    db = DB('127.0.0.1',666)
    db.connect()
-   
-   #db.create_db('Name',3,1000000)
-   #db.init_column(0,0,'First','string')
-   #db.init_column(0,1,'Second','integer')
+   #db.create_db('Videos',2,1000000)
+   ###db.create_db('Name',3,1000000)
+   #db.init_column(0,0,'id','string')
+   #db.init_column(0,1,'views','integer')
    #db.init_column(0,2,'Third','long')
    #nu = 666
    #start = 0
@@ -224,9 +259,11 @@ if __name__ == '__main__':
    #    db.set_value(0,'Third',i,'long',i)
 
    #db.set_value(0,'Third',999,'long',666224)
-   #value = db.get_value(0,'Third',999,'long')
-   value = db.where(0,'Second\0',999999,'integer',['string','integer','long'])
+   value = db.where(0,'views\0',0,'integer',['string','integer'])
+   #print(value)
+   #value = db.where(0,'Second\0',999999,'integer',['string','integer','long'])
+   #value = db.exist(0,'Second','integer',1)
    print(value)  
-   db.dump()
+   #db.dump()
    db.close()
    #print(num)
