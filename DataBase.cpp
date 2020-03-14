@@ -248,14 +248,28 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			data = dbs[*(int*)(&packet[4])].get_name();
 			iResult = send(socket, data, strlen(data) + 1, 0);
 		}
-		
+
+		else if (strcmp(packet, "exi\0") == 0) {// exist || exi\0 \x00\x00\x00\x00 name_of_column\0 value
+			data = new char[1];
+			if (dbs[*(int*)(&packet[4])].exist(&packet[8], (unsigned char*)& packet[9 + strlen(&packet[8])])) {
+				data[0] = (char)1;
+			}
+			else {
+				data[0] = '\0';
+			}
+			iResult = send(socket, data, 1, 0);
+			delete[] data;
+		}
+		else if (strcmp(packet, "apr\0") == 0) {//append row || exi\0 \x00\x00\x00\x00
+			dbs[*(int*)(&packet[4])].append_rows((unsigned int)packet[8]);
+
+		}
 		else if (strcmp(packet, "dum\0") == 0) {//dump all dbs
 			new_db.lock();
 			for (unsigned int i = 0; i < dbs_count;i++) {
 				dbs[i].dump(root_path);
 			}
-			new_db.unlock();
-			
+			new_db.unlock();			
 		}
 		
 		delete[] packet;
