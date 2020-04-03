@@ -51,7 +51,18 @@ char* parse_main_path(char* path) {
 
 mutex mtx_new_connection;           // mutex for critical section
 mutex new_db;
-mutex mtx_column;
+
+
+unsigned int number_of_db(char* db_name) {
+	unsigned int number = 0;
+	for (unsigned int number = 0; number < dbs_count; number++) {
+		if (strcmp(dbs[number].get_name(), db_name) == 0) {
+			break;
+		}
+	}
+	return number;
+}
+
 
 void work_with_db(SOCKET* sock,bool* alive) {
 	*alive = true;
@@ -62,7 +73,7 @@ void work_with_db(SOCKET* sock,bool* alive) {
 	struct timeval tv;
 	FD_ZERO(&fds);
 	FD_SET(socket, &fds);
-	tv.tv_sec = 60;
+	tv.tv_sec = 100000;
 	tv.tv_usec = 0;
 
 	unsigned int packet_size=1;
@@ -110,6 +121,7 @@ void work_with_db(SOCKET* sock,bool* alive) {
 												//				 cmd    number of db		column number	   column name    type of column
 			new_db.lock();
 			if (*(int*)(&packet[4]) >= dbs_count || *(int*)(&packet[4]) < 0) {
+				new_db.unlock();
 				break;
 				
 			}
@@ -138,6 +150,8 @@ void work_with_db(SOCKET* sock,bool* alive) {
 		}
 		else if (strcmp(packet, "gro\0") == 0) {// get whole row || gro\0 \x00\x00\x00\x00    \x00\x00\x00\x00
 												//				    cmd        number of db	   row
+			new_db.lock();
+			new_db.unlock();
 			size_t size = 0;
 			for (unsigned int i=0; i < dbs[*(int*)(&packet[4])].get_count_of_columns(); i++) {
 				size = size + dbs[*(unsigned int*)(&packet[4])].get_size(i, *(unsigned int*)(&packet[8]));
@@ -158,40 +172,47 @@ void work_with_db(SOCKET* sock,bool* alive) {
 
 
 		}
-		else if (strcmp(packet, "whe\0") == 0) {// where || whe\0 \x00\x00\x00\x00 name_of_column\0 data
+		else if (strcmp(packet, "whe\0") == 0) {// where || whe\0 name_of_db\0 name_of_column\0 data
 												//			cmd    number of db		name_of_column
-			if (*(int*)(&packet[4]) >= dbs_count || *(int*)(&packet[4]) < 0) {
+			/*if (*(int*)(&packet[4]) >= dbs_count || *(int*)(&packet[4]) < 0) {
 				break;
-			}
-			size_t size = 0;
+			}*/
+			size_t size = 4;
 			char* data;
 			unsigned int row = 0;
 			new_db.lock();
 			new_db.unlock();
+			unsigned int number_db = 0;
+			number_db = number_of_db(&packet[4]);
+			bool ok = true;
 			try{
-				row = dbs[*(int*)(&packet[4])].where(&packet[8], (unsigned char*)& packet[8] + strlen(&packet[8]) + 1);
+				row = dbs[number_db].where(&packet[strlen(&packet[4])+5], (unsigned char*)&packet[strlen(&packet[4]) + 5] + strlen(&packet[strlen(&packet[4]) + 5]) + 1);
 			}
 			catch (int e) {
 				size = 15;
 				iResult = send(socket, (char*)& size, sizeof(size), 0);
 				iResult = send(socket, (char*)&nothing, size, 0);
+				ok = false;
 			}
 
-			for (unsigned int i = 0; i < dbs[*(int*)(&packet[4])].get_count_of_columns(); i++) {
-				size = size + dbs[*(unsigned int*)(&packet[4])].get_size(i, row);
-			}
-
-			//char* data;
-			iResult = send(socket, (char*)& size, sizeof(size), 0);
-			if (iResult > 0) {
-				data = new char[size];
-				size_t spec_counter = 0;
-				for (unsigned int i = 0; i < dbs[*(int*)(&packet[4])].get_count_of_columns(); i++) {
-					memcpy(&data[spec_counter], dbs[*(int*)(&packet[4])].get_value(i, row), dbs[*(int*)(&packet[4])].get_size(i, row));
-					spec_counter += dbs[*(int*)(&packet[4])].get_size(i, row);
+			if (ok) {
+				for (unsigned int i = 0; i < dbs[number_db].get_count_of_columns(); i++) {
+					size = size + dbs[number_db].get_size(i, row);
 				}
-				iResult = send(socket, data, size, 0);
-				delete[] data;
+
+				//char* data;
+				iResult = send(socket, (char*)&size, sizeof(size), 0);
+				if (iResult > 0) {
+					data = new char[size];
+					memcpy(data, (unsigned int*)&row, sizeof(row));
+					size_t spec_counter = 4;
+					for (unsigned int i = 0; i < dbs[number_db].get_count_of_columns(); i++) {
+						memcpy(&data[spec_counter], dbs[number_db].get_value(i, row), dbs[number_db].get_size(i, row));
+						spec_counter += dbs[number_db].get_size(i, row);
+					}
+					iResult = send(socket, data, size, 0);
+					delete[] data;
+				}
 			}
 
 
@@ -204,8 +225,7 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			}
 			unsigned int size=0;
 			char* data;
-			new_db.lock();
-			new_db.unlock();
+			
 			if (dbs[*(int*)(&packet[4])].cell_is_empty(&packet[8], *(unsigned int*)(&packet[packet_size - 4]))) {
 				data = new char[1];
 				data[0] = '\0';
@@ -260,7 +280,7 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			iResult = send(socket, data, 1, 0);
 			delete[] data;
 		}
-		else if (strcmp(packet, "apr\0") == 0) {//append row || exi\0 \x00\x00\x00\x00
+		else if (strcmp(packet, "apr\0") == 0) {//append row || apr\0 \x00\x00\x00\x00
 			dbs[*(int*)(&packet[4])].append_rows((unsigned int)packet[8]);
 
 		}
@@ -288,23 +308,22 @@ void connection_handler() {
 	for (int i = 0; i < MAX_THREADS; i++) {
 		threads_pool_alive[i] = false;
 	}
-	//unsigned int working_threads = 0;
+	
 	unsigned int available_thread = 0;
 	while (true) {
-		//if (working_threads > 0) {
+		
 			available_thread = 0;
 			while (available_thread < MAX_THREADS) {
 				if (!threads_pool_alive[available_thread]) {
 					
-					//working_threads--;
+					
 					break;
 				}
 				available_thread++;
 			}
-		//}
-		//else {
+		
 			this_thread::sleep_for(chrono::milliseconds(10));
-		//}
+		
 
 		if (sockets_count > 0&&available_thread!=MAX_THREADS) {
 			memcpy(&sock, sockets_pool, sizeof(SOCKET));
@@ -312,12 +331,12 @@ void connection_handler() {
 			sockets_count--;
 			memcpy(sockets_pool,&sockets_pool[1],sizeof(SOCKET)*sockets_count);
 			mtx_new_connection.unlock();
-			//thread thread(work_with_db, &sock,&threads_pool_alive[available_thread]);	
+			
 			if (threads_pool[available_thread].joinable()) {
 				threads_pool[available_thread].join();
 			}
 			threads_pool[available_thread] = thread(work_with_db,&sock,&threads_pool_alive[available_thread]);
-			//working_threads++;
+			
 		}
 		
 	}
@@ -369,6 +388,12 @@ int main(int argc, char* argv[])
 		}
 	}
 	
+	/*for (unsigned int i = 0; i <= dbs[0].get_count_of_rows(); i++) {
+		if (dbs[0].cell_is_empty((unsigned int)0, i)) {
+			std::cout << i;
+			break;
+		}
+	}*/
 
 	WSADATA wsaData;
 	int iResult;
@@ -394,7 +419,7 @@ int main(int argc, char* argv[])
 	SOCKET ListenSocket = INVALID_SOCKET;
 	// Create a SOCKET for the server to listen for client connections
 	ListenSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-	//thread(connection_handler,&ListenSocket);
+	
 	if (ListenSocket == INVALID_SOCKET) {
 		printf("Error at socket(): %ld\n", WSAGetLastError());
 		freeaddrinfo(result);

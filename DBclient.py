@@ -121,8 +121,8 @@ class DB:
                  offset+=1
         return data
 
-    def where(self,number_of_db:int,column_name,value,value_type,typesI:list):
-        packet = b'whe\0'+pack('I',number_of_db)+bytes(column_name,'utf-8')
+    def where(self,name_of_db:str,column_name,value,value_type,typesI:list):# list [row_number,data...]
+        packet = b'whe\0'+bytes(name_of_db,'ascii')+b'\0'+bytes(column_name,'utf-8')+b'\0'
         if value_type == types[0]:
              packet+=bytes(value,'utf-8')+b'\0'
         elif value_type == types[1]:
@@ -147,14 +147,14 @@ class DB:
         dt = self.socket.recv(8)
         v_size = unpack('Q',dt)[0]
         received = self.socket.recv(v_size)
-        data = []
-        offset = 0
+        data = [unpack('I',received[0:4])[0]]
+        offset = 4
         for type in typesI:
-            if type == types[0]:
+            if type == types[0]:                
                 for i in range(offset,v_size):
                     if received[i] == 0:
                         data.append(received[offset:i].decode('utf-8'))
-                        offset = offset + i+1
+                        offset = i+1
                         break
                  #data.append(received[:-1].decode('utf-8'))
             elif type == types[1]:
@@ -249,21 +249,28 @@ if __name__ == '__main__':
    ###db.create_db('Name',3,1000000)
    #db.init_column(0,0,'id','string')
    #db.init_column(0,1,'views','integer')
+   data = db.get_row(0,0,['string','float','float','float'])
+   #data = db.get_value(0,'act1',0,'float')
+   #data = db.where('Videos','views',0,'integer',['string','integer'])
    #db.init_column(0,2,'Third','long')
    #nu = 666
    #start = 0
    #for i in range(start,1000000):
        
-   #    db.set_value(0,'First',i,'string','NAMENAMENAMENAMENAMENAMENAMENAMENAMENAMENAMENAMENAMENAME')
+   #db.set_value(0,'env',0,'string','a'*1000)
+   #db.set_value(0,'act1',0,'float',0.0)
+   #db.set_value(0,'act2',0,'float',0.0)
+   #db.set_value(0,'act3',0,'float',0.0)
+
    #    db.set_value(0,'Second',i,'integer',i)
    #    db.set_value(0,'Third',i,'long',i)
 
    #db.set_value(0,'Third',999,'long',666224)
-   value = db.where(0,'views\0',0,'integer',['string','integer'])
+   #value = db.get_row(0,0,['string','integer'])#db.where(0,'views\0',0,'integer',['string','integer'])
    #print(value)
    #value = db.where(0,'Second\0',999999,'integer',['string','integer','long'])
    #value = db.exist(0,'Second','integer',1)
-   print(value)  
+   #print(value)  
    #db.dump()
    db.close()
    #print(num)

@@ -14,6 +14,8 @@ struct Types{
 
 }types;
 
+bool _false = false;
+
 class Cell {
 private:
 	unsigned char* value;
@@ -138,7 +140,7 @@ public:
 	}
 
 	unsigned int get_size(unsigned int row) {
-		return cells[row].get_size(type);
+		return cells[row].get_size(this->type);
 	}
 
 	bool is_inited() {
@@ -175,7 +177,7 @@ public:
 
 	unsigned char* get_value(unsigned int cell) {
 		if (cell >= n_rows || cell < 0) {
-			return false;
+			return (unsigned char *)&_false;
 		}
 		return cells[cell].get_value();
 
@@ -216,6 +218,7 @@ class DB {
 private:
 	unsigned int count_of_rows;
 	unsigned int count_of_columns;
+	//unsigned int last_row=0;
 	char* name;
 	Column* columns;
 	bool inited;
@@ -254,7 +257,8 @@ public:
 	}
 
 	unsigned int get_size(unsigned int column, unsigned int row) {
-		return this->columns[column].get_size(row);
+		unsigned int sz = this->columns[column].get_size(row);
+		return sz;
 	}
 
 	bool cell_is_empty(char* column_name, unsigned int row) {
@@ -266,6 +270,14 @@ public:
 		return true;
 	}
 
+	bool cell_is_empty(unsigned int column, unsigned int row) {
+		
+		return this->columns[column].is_cell_empty(row);
+		
+		
+		//return true;
+	}
+
 	bool init_column(unsigned int column, char* name, char* type) {
 		if (column < 0 || column >= count_of_columns) {
 			return false;
@@ -275,7 +287,7 @@ public:
 	}
 	unsigned char* get_value(unsigned int column, unsigned int row) {
 		if (column < 0 || column >= count_of_columns) {
-			return false;
+			return (unsigned char*)&_false;
 		}
 		return this->columns[column].get_value(row);
 	}
@@ -301,7 +313,7 @@ public:
 				return this->columns[i].get_value(row);
 			}
 		}
-		return false;
+		return (unsigned char*)&_false;
 	}
 
 	char* get_type(char* column_name) {
@@ -629,12 +641,15 @@ public:
 		unsigned int row = 0;
 		if (strcmp(get_type(column_name),types.str) == 0) {
 			for (unsigned int i = 0; i < this->count_of_rows; i++) {
+				if (cell_is_empty(column_name, i)) {
+					continue;
+				}
 				if (strcmp((char*)get_value(column_name, i), (char*)data) == 0) {
 					row = i;
 					break;
 				}
 			}
-			if (row == 0 && strcmp((char*)get_value(column_name, row), (char*)data) != 0) {
+			if (cell_is_empty(column_name, 0) || (row == 0 && strcmp((char*)get_value(column_name, row), (char*)data) != 0)) {
 				throw 25;
 			}
 		}
@@ -723,10 +738,10 @@ public:
 					}
 					
 				}
-								
+				return false;
 			}
 		}
-		return false;
+		
 	}
 
 	char* get_name() {
