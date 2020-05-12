@@ -207,6 +207,7 @@ public:
 		return type;
 	}
 
+
 	~Column(){
 		
 	}
