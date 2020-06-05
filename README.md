@@ -5,9 +5,10 @@ DataBase.cpp - server for DB, uses new threads for every new user
 # ToDo
 
 Add more functionality(pop,insert)
+Make it lighter
 
 # Args
-  -p <port> - specify port for bd server(always must be first argument)
+  -p <port> - specify port for db server(always must be first argument)
   
   If you want to load dbs from dumps just write:
   
