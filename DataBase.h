@@ -207,6 +207,33 @@ public:
 		return type;
 	}
 
+	Cell* pop(unsigned int cell_number) {
+		//Returns pointer to Cell, must be deleted
+		Cell* to_return = new Cell();
+		memcpy(to_return,&cells[cell_number],sizeof(Cell));				
+		if (cell_number != (this->n_rows - 1)) {
+			Cell* buf = new Cell[n_rows];
+			memcpy(buf, cells, cell_number * sizeof(Cell));
+			memcpy(&buf[cell_number], &cells[cell_number + 1], (n_rows - 1 - cell_number) * sizeof(Cell));
+			delete[] cells;
+			cells = buf;			
+			
+		}
+		
+		return to_return;
+	}
+
+	void insert(unsigned int cell_number, unsigned char* data) {
+		Cell* buf = new Cell[n_rows + 1];
+		memcpy(buf,cells,cell_number*sizeof(Cell));
+		buf[cell_number].set_value(data,this->type);
+		memcpy(&buf[cell_number+1],&cells[cell_number],(n_rows-cell_number)*sizeof(Cell));
+
+		delete[] cells;
+		cells = buf;
+		n_rows += 1;
+	}
+
 
 	~Column(){
 		
@@ -245,16 +272,18 @@ public:
 		inited = true;
 	}
 
-	unsigned int get_size(char* column_name, unsigned int row) {
-		if (row >= count_of_rows || row < 0) {
-			return 0;
-		}
-		for (unsigned int i = 0; i < count_of_columns; i++) {
-			if (strcmp(column_name, columns[i].get_name()) == 0) {
-				return this->columns[i].get_size(row);
+	unsigned int get_column_number(char* column_name) {
+		unsigned int column_number=0;
+		for (column_number; column_number < count_of_columns; column_number++) {
+			if (strcmp(column_name, columns[column_number].get_name()) == 0) {
+				return column_number;
 			}
 		}
-		return 0;
+		throw 25;
+	}
+
+	unsigned int get_size(char* column_name, unsigned int row) {
+		return this->get_size(get_column_number(column_name),row);
 	}
 
 	unsigned int get_size(unsigned int column, unsigned int row) {
@@ -263,20 +292,13 @@ public:
 	}
 
 	bool cell_is_empty(char* column_name, unsigned int row) {
-		for (unsigned int i = 0; i < count_of_columns; i++) {
-			if (strcmp(column_name, columns[i].get_name()) == 0) {
-				return this->columns[i].is_cell_empty(row);
-			}
-		}
-		return true;
+		return cell_is_empty(get_column_number(column_name), row);
 	}
 
 	bool cell_is_empty(unsigned int column, unsigned int row) {
 		
 		return this->columns[column].is_cell_empty(row);
 		
-		
-		//return true;
 	}
 
 	bool init_column(unsigned int column, char* name, char* type) {
@@ -300,29 +322,26 @@ public:
 	}
 
 	bool set_value(char* column_name, unsigned int row, void* value) {
-		for (unsigned int i = 0; i < count_of_columns; i++) {
-			if (strcmp(column_name, columns[i].get_name()) == 0) {
-				return this->columns[i].set_value(row, value);
-			}
-		}
-		return false;
+		return set_value(get_column_number(column_name),row,value);
 	}
 
 	void* get_value(char* column_name, unsigned int row) {
-		for (unsigned int i = 0; i < count_of_columns; i++) {
-			if (strcmp(column_name, columns[i].get_name()) == 0) {
-				return this->columns[i].get_value(row);
-			}
-		}
-		return (unsigned char*)&_false;
+		return get_value(get_column_number(column_name),row);
+	}
+
+	char* get_type(unsigned int column_number) {
+		return this->columns[column_number].get_type();
 	}
 
 	char* get_type(char* column_name) {
-		for (unsigned int i = 0; i < count_of_columns; i++) {
+		/*for (unsigned int i = 0; i < count_of_columns; i++) {
 			if (strcmp(column_name, columns[i].get_name()) == 0) {
 				return this->columns[i].get_type();
 			}
-		}
+		}*/
+		
+		return this->get_type(get_column_number(column_name));
+		
 	}
 
 	void append_column(char* column_name, char* type) {
@@ -388,35 +407,7 @@ public:
 	}
 
 	void delete_column(char* column_name) {
-		unsigned int column;
-		while(column<count_of_columns){
-			if (strcmp(column_name, columns[column].get_name()) == 0) {				
-				break;
-			}
-			column++;
-		}
-		if (column == count_of_columns) {
-			return;
-		}
-		columns[column].uninit();
-		if (column < 0 || column >= count_of_columns) {
-			return;
-		}
-
-		Column* buf = new Column[this->count_of_columns - 1];
-		unsigned int counter = column * sizeof(Column);
-
-		if (counter > 0) {
-			memcpy(buf, columns, counter);
-		}
-		counter = sizeof(Column) * (count_of_columns - column - 1);
-
-		if (counter > 0) {
-			memcpy(&buf[column], &columns[column + 1], counter);
-		}
-		delete[] columns;
-		columns = buf;
-		count_of_columns -= 1;
+		delete_column(get_column_number(column_name));
 	}
 
 	unsigned int get_count_of_rows() {
@@ -466,8 +457,9 @@ public:
 					continue;
 				}
 				
+				file.write((const char*)get_value(i,n),get_size(i,n));
 
-				if (strcmp(columns[i].get_type(), types.str) == 0) {
+				/*if (strcmp(columns[i].get_type(), types.str) == 0) {
 					file << columns[i].get_value(n) << '\0';
 
 				}
@@ -479,7 +471,7 @@ public:
 				}
 				else if (strcmp(columns[i].get_type(), types.boolean) == 0) {
 					file << *this->get_value(i, n);
-				}
+				}*/
 			}
 
 		}
@@ -690,59 +682,39 @@ public:
 		return row;
 	}
 
-	bool exist(char* column_name, unsigned char* data) {
-		for (unsigned int cl = 0; cl < count_of_columns; cl++) {
-			if (strcmp(column_name, columns[cl].get_name()) == 0) {
-
-				if (strcmp(get_type(column_name), types.str) == 0) {
-					for (unsigned int i = 0; i < this->count_of_rows; i++) {
-						if (this->columns[cl].cell_empty(i)) {
-							continue;
-						}
-						if (strcmp((char*)get_value(column_name, i), (char*)data) == 0) {
-
-							return true;
-						}
-					}
-					
-				}
-				else if (strcmp(get_type(column_name), types.integer) == 0 || strcmp(get_type(column_name), types.uinteger) == 0 || strcmp(get_type(column_name), types._float) == 0) {
-					for (unsigned int i = 0; i < this->count_of_rows; i++) {
-						if (this->columns[cl].cell_empty(i)) {
-							continue;
-						}
-						if (((unsigned char*)get_value(column_name, i))[0] == data[0] && ((unsigned char*)get_value(column_name, i))[1] == data[1] && ((unsigned char*)get_value(column_name, i))[2] == data[2] && ((unsigned char*)get_value(column_name, i))[3] == data[3]) {
-							return true;
-						}
-					}
-					
-				}
-				else if (strcmp(get_type(column_name), types._long) == 0 || strcmp(get_type(column_name), types.ulong) == 0 || strcmp(get_type(column_name), types._double) == 0) {
-					for (unsigned int i = 0; i < this->count_of_rows; i++) {
-						if (this->columns[cl].cell_empty(i)) {
-							continue;
-						}
-						if (((unsigned char*)get_value(column_name, i))[0] == data[0] && ((unsigned char*)get_value(column_name, i))[1] == data[1] && ((unsigned char*)get_value(column_name, i))[2] == data[2] && ((unsigned char*)get_value(column_name, i))[3] == data[3] && ((unsigned char*)get_value(column_name, i))[4] == data[4] && ((unsigned char*)get_value(column_name, i))[5] == data[5] && ((unsigned char*)get_value(column_name, i))[6] == data[6] && ((unsigned char*)get_value(column_name, i))[7] == data[7]) {
-							return true;
-						}
-					}
-					
-				}
-				else if (strcmp(get_type(column_name), types.boolean) == 0) {
-					for (unsigned int i = 0; i < this->count_of_rows; i++) {
-						if (this->columns[cl].cell_empty(i)) {
-							continue;
-						}
-						if (((unsigned char*)get_value(column_name, i))[0] == data[0]) {
-							return true;
-						}
-					}
-					
-				}
-				return false;
-			}
+	
+	Cell* pop(unsigned int cell_number) {	
+		Cell* to_return = new Cell[count_of_columns];
+		Cell* temp;
+		for (unsigned int i = 0; i < count_of_columns; i++) {
+			temp = columns[i].pop(cell_number);
+			memcpy(&to_return[i],temp,sizeof(Cell));
+			delete temp;
 		}
 		
+		return to_return;
+		
+	}
+
+
+	void insert_row(unsigned int row_num, unsigned char* data) {
+		unsigned int starting_offset = 0;
+		for (unsigned int i = 0; i < count_of_columns; i++) {
+			columns[i].insert(row_num, &data[starting_offset]);
+			starting_offset += get_size(i,row_num);
+		}
+		count_of_rows += 1;
+	}
+	
+
+	bool exist(char* column_name, unsigned char* data) {
+		try {
+			this->where(column_name,data);
+		}
+		catch(int e){
+			return false;
+		}
+		return true;
 	}
 
 	char* get_name() {
