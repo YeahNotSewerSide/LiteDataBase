@@ -209,16 +209,19 @@ public:
 
 	Cell* pop(unsigned int cell_number) {
 		//Returns pointer to Cell, must be deleted
+		if (n_rows == 0) {
+			throw 25;
+		}
 		Cell* to_return = new Cell();
 		memcpy(to_return,&cells[cell_number],sizeof(Cell));				
-		if (cell_number != (this->n_rows - 1)) {
-			Cell* buf = new Cell[n_rows];
-			memcpy(buf, cells, cell_number * sizeof(Cell));
-			memcpy(&buf[cell_number], &cells[cell_number + 1], (n_rows - 1 - cell_number) * sizeof(Cell));
-			delete[] cells;
-			cells = buf;			
-			
-		}
+		//if (cell_number != (this->n_rows - 1)) {
+		Cell* buf = new Cell[n_rows-1];
+		memcpy(buf, cells, cell_number * sizeof(Cell));
+		memcpy(&buf[cell_number], &cells[cell_number + 1], (n_rows - 1 - cell_number) * sizeof(Cell));
+		delete[] cells;
+		cells = buf;			
+		n_rows -= 1;
+		//}
 		
 		return to_return;
 	}
@@ -648,34 +651,34 @@ public:
 		}
 		else if (strcmp(get_type(column_name), types.integer) == 0 || strcmp(get_type(column_name), types.uinteger) == 0 || strcmp(get_type(column_name), types._float) == 0) {
 			for (unsigned int i = 0; i < this->count_of_rows; i++) {
-				if (((unsigned char*)get_value(column_name, i))[0] == data[0] && ((unsigned char*)get_value(column_name, i))[1] == data[1] && ((unsigned char*)get_value(column_name, i))[2] == data[2] && ((unsigned char*)get_value(column_name, i))[3] == data[3]) {
+				if (*(unsigned int*)get_value(column_name,i) == *(unsigned int*)data) {
 					row = i;
 					break;
 				}
 			}
-			if (row ==0 && (((unsigned char*)get_value(column_name, row))[0] != data[0] && ((unsigned char*)get_value(column_name, row))[1] != data[1] && ((unsigned char*)get_value(column_name, row))[2] != data[2] && ((unsigned char*)get_value(column_name, row))[3] != data[3])) {
+			if (row ==0 && *(unsigned int*)get_value(column_name, row) != *(unsigned int*)data) {
 				throw 25;
 			}
 		}
 		else if (strcmp(get_type(column_name), types._long) == 0 || strcmp(get_type(column_name), types.ulong) == 0 || strcmp(get_type(column_name), types._double) == 0) {
 			for (unsigned int i = 0; i < this->count_of_rows; i++) {
-				if (((unsigned char*)get_value(column_name, i))[0] == data[0] && ((unsigned char*)get_value(column_name, i))[1] == data[1] && ((unsigned char*)get_value(column_name, i))[2] == data[2] && ((unsigned char*)get_value(column_name, i))[3] == data[3] && ((unsigned char*)get_value(column_name, i))[4] == data[4] && ((unsigned char*)get_value(column_name, i))[5] == data[5] && ((unsigned char*)get_value(column_name, i))[6] == data[6] && ((unsigned char*)get_value(column_name, i))[7] == data[7]) {
+				if (*(unsigned long long*)get_value(column_name,i) == *(unsigned long long*)data) {
 					row = i;
 					break;
 				}
 			}
-			if (row == 0 && (((unsigned char*)get_value(column_name, row))[0] != data[0] && ((unsigned char*)get_value(column_name, row))[1] != data[1] && ((unsigned char*)get_value(column_name, row))[2] != data[2] && ((unsigned char*)get_value(column_name, row))[3] != data[3] && ((unsigned char*)get_value(column_name, row))[4] != data[4] && ((unsigned char*)get_value(column_name, row))[5] != data[5] && ((unsigned char*)get_value(column_name, row))[6] != data[6] && ((unsigned char*)get_value(column_name, row))[7] != data[7])) {
+			if (row == 0 && *(unsigned long long*)get_value(column_name, row) != *(unsigned long long*)data) {
 				throw 25;
 			}
 		}
 		else if (strcmp(get_type(column_name), types.boolean) == 0) {
 			for (unsigned int i = 0; i < this->count_of_rows; i++) {
-				if (((unsigned char*)get_value(column_name, i))[0] == data[0]) {
+				if (*(bool*)get_value(column_name, i) == *(bool*)data) {
 					row = i;
 					break;
 				}
 			}
-			if (row == 0 && (((unsigned char*)get_value(column_name, row))[0] != data[0] )) {
+			if (row == 0 && *(bool*)get_value(column_name, row) != *(bool*)data) {
 				throw 25;
 			}
 		}
@@ -686,12 +689,21 @@ public:
 	Cell* pop(unsigned int cell_number) {	
 		Cell* to_return = new Cell[count_of_columns];
 		Cell* temp;
-		for (unsigned int i = 0; i < count_of_columns; i++) {
-			temp = columns[i].pop(cell_number);
-			memcpy(&to_return[i],temp,sizeof(Cell));
-			delete temp;
+		try {
+			for (unsigned int i = 0; i < count_of_columns; i++) {
+				temp = columns[i].pop(cell_number);
+				memcpy(&to_return[i], temp, sizeof(Cell));
+				delete temp;
+			}
 		}
-		
+		catch (int e) {
+			for (unsigned int i = 0; i < count_of_columns; i++) {
+				to_return->clear();
+			}
+			delete[] to_return;
+			throw 25;
+		}
+		count_of_rows -= 1;
 		return to_return;
 		
 	}
@@ -704,6 +716,10 @@ public:
 			starting_offset += get_size(i,row_num);
 		}
 		count_of_rows += 1;
+	}
+
+	void append(unsigned char* data) {
+		insert_row(count_of_rows,data);
 	}
 	
 

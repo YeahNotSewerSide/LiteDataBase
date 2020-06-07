@@ -147,11 +147,15 @@ class DB:
         dt = self.socket.recv(8)
         v_size = unpack('Q',dt)[0]
         received = self.socket.recv(v_size)
+        if v_size == 0:
+            raise Exception('Nothing found')
+        
         data = [unpack('I',received[0:4])[0]]
         offset = 4
         for type in typesI:
             if type == types[0]:                
                 for i in range(offset,v_size):
+                    
                     if received[i] == 0:
                         data.append(received[offset:i].decode('utf-8'))
                         offset = i+1
@@ -239,7 +243,11 @@ class DB:
         self.socket.send(packet)
         dt = self.socket.recv(8)
         v_size = unpack('Q',dt)[0]
+        if v_size == 0:
+            raise Exception('Row uninitialized')
+        
         received = self.socket.recv(v_size)
+
         data = []
         offset = 0
         for type in typesI:
@@ -247,7 +255,7 @@ class DB:
                 for i in range(offset,v_size):
                     if received[i] == 0:
                         data.append(received[offset:i].decode('utf-8'))
-                        offset = offset + i+1
+                        offset = i+1
                         break
                  #data.append(received[:-1].decode('utf-8'))
             elif type == types[1]:
@@ -280,29 +288,37 @@ class DB:
         self.socket.send(size)
         self.socket.send(packet)
 
-    def insert(self,name_of_db,row_number,data,typesI):
-        packet = b'ins\0'+bytes(name_of_db,'utf-8')+b'\0'+pack('I',row_number)
+    def insert(self,name_of_db,row_number,data:list,typesI,append=False):
+        if row_number != None:
+            packet = b'ins\0'+bytes(name_of_db,'utf-8')+b'\0'+pack('I',row_number)
+        else:
+            packet = b'app\0'+bytes(name_of_db,'utf-8')+b'\0'
+        data_offset = 0
         for type in typesI:
             if type == types[0]:
-                 packet+=bytes(data,'utf-8')+b'\0'
+                 packet+=bytes(data[data_offset],'utf-8')+b'\0'
             elif type == types[1]:
-                 packet+= pack('i',data)
+                 packet+= pack('i',data[data_offset])
             elif type == types[2]:
-                 packet+= pack('I',data)
+                 packet+= pack('I',data[data_offset])
             elif type == types[3]:
-                 packet+= pack('f',data)
+                 packet+= pack('f',data[data_offset])
             elif type == types[4]:
-                 packet+= pack('q',data)
+                 packet+= pack('q',data[data_offset])
             elif type == types[5]:
-                 packet+= pack('Q',data)
+                 packet+= pack('Q',data[data_offset])
             elif type == types[6]:
-                 packet+= pack('d',data)
+                 packet+= pack('d',data[data_offset])
             elif type == types[7]:
-                 packet+= pack('b',data)
+                 packet+= pack('b',data[data_offset])
+            data_offset += 1
 
         size = pack('I',len(packet))
         self.socket.send(size)
         self.socket.send(packet)
+
+    def append(self,name_of_db,data,typesI):
+        self.insert(name_of_db,None,data,typesI,True)
 
 
     #def insert(self,name_of_db:int,column_name:str,cell:int,value_type:str,value):
