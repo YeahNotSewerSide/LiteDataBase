@@ -1,11 +1,10 @@
 # DataBase
-DataBase.h - header file with core of DB.
+DataBase.h - header file with core of DB.(It's not a header file for DataBase.cpp!!!)
 
 DataBase.cpp - server for DB, uses new threads for every new user
-# ToDo
 
-Add more functionality(pop,insert)
-Make it lighter
+# ToDo
+Improve data base's server
 
 # Args
   -p <port> - specify port for db server(always must be first argument)
