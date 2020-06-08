@@ -1,8 +1,13 @@
 import socket
 from struct import pack,unpack
 import time
+from threading import Lock
 
 types = ['string','integer','uinteger','float','long','ulong','double','boolean']
+
+Global_DB_Lock = Lock()
+
+
 
 class DB:
     def __init__(self,ip:str,port:int):
@@ -15,16 +20,20 @@ class DB:
     def create_db(self,name:str,count_of_columns:int,count_of_rows:int):
         packet = b'ndb\0'+bytes(name,'utf-8')+b'\0'+pack('I',count_of_columns)+pack('I',count_of_rows)
         size = pack('I',len(packet))
+        Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
+        Global_DB_Lock.release()
 
     def init_column(self,name_of_db:int,column:int,column_name:str,column_type:str):
         if column_type not in types:
             raise Exception('Unknown type')
         packet = b'ico\0'+bytes(name_of_db,'utf-8')+b'\0'+pack('I',column)+bytes(column_name,'utf-8')+b'\0'+bytes(column_type,'utf-8')+b'\0'
         size = pack('I',len(packet))
+        Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
+        Global_DB_Lock.release()
 
     def set_value(self,name_of_db:int,column_name:str,cell:int,value_type:str,value):
         if value_type not in types:
@@ -47,19 +56,23 @@ class DB:
         elif value_type == types[7]:
              packet+= pack('b',value)
         size = pack('I',len(packet))
+        Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
+        Global_DB_Lock.release()
 
     def get_value(self,name_of_db:int,column_name:str,cell:int,value_type:str):
         if value_type not in types:
             raise Exception('Unknown type')
         packet = b'gva\0'+bytes(name_of_db,'utf-8')+b'\0'+bytes(column_name,'utf-8')+b'\0'+pack('I',cell)
         size = pack('I',len(packet))
+        Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
         dt = self.socket.recv(4)
         v_size = unpack('I',dt)[0]
         received = self.socket.recv(v_size)
+        Global_DB_Lock.release()
         
         if value_type == types[0]:
              data=received[:-1].decode('utf-8')
@@ -83,11 +96,13 @@ class DB:
     def get_row(self,name_of_db:int,row_number:int,typesI:list):
         packet = b'gro\0'+bytes(name_of_db,'utf-8')+b'\0'+pack('I',row_number)
         size = pack('I',len(packet))
+        Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
         dt = self.socket.recv(8)
         v_size = unpack('Q',dt)[0]
         received = self.socket.recv(v_size)
+        Global_DB_Lock.release()
         data = []
         offset = 0
         for type in typesI:
@@ -141,12 +156,14 @@ class DB:
              packet+= pack('b',value)
 
         size = pack('I',len(packet))
+        Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
 
         dt = self.socket.recv(8)
         v_size = unpack('Q',dt)[0]
         received = self.socket.recv(v_size)
+        Global_DB_Lock.release()
         if v_size == 0:
             raise Exception('Nothing found')
         
@@ -187,24 +204,30 @@ class DB:
     def get_type(self,name_of_db:int,column_name:str):
         packet = b'gty\0'+bytes(name_of_db,'utf-8')+b'\0'+bytes(column_name,'utf-8')
         size = pack('I',len(packet))
+        Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
         dt = self.socket.recv(100)
+        Global_DB_Lock.release()
         return dt[:-1].decode('utf-8')
     
     def get_db_name(self,number_of_db:int):
         packet = b'gbn\0'+pack('I',number_of_db)
         size = pack('I',len(packet))
+        Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
         dt = self.socket.recv(100)
+        Global_DB_Lock.release()
         return dt[:-1].decode('utf-8')
 
     def dump(self):
         packet = b'dum\0'
         size = pack('I',len(packet))
+        Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
+        Global_DB_Lock.release()
     
     def exist(self,name_of_db:int,column_name:str,value_type:str,value):
         if value_type not in types:
@@ -227,9 +250,11 @@ class DB:
         elif value_type == types[7]:
              packet+= pack('b',value)
         size = pack('I',len(packet))
+        Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
         dt = self.socket.recv(1)
+        Global_DB_Lock.release()
         if dt == b'\x00':
             return False
         else:
@@ -239,6 +264,7 @@ class DB:
     def pop(self,name_of_db:int,row_number:int,typesI:list):
         packet = b'pop\0'+bytes(name_of_db,'utf-8')+b'\0'+pack('I',row_number)
         size = pack('I',len(packet))
+        Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
         dt = self.socket.recv(8)
@@ -247,6 +273,7 @@ class DB:
             raise Exception('Row uninitialized')
         
         received = self.socket.recv(v_size)
+        Global_DB_Lock.release()
 
         data = []
         offset = 0
@@ -285,8 +312,10 @@ class DB:
     def append_rows(self,name_of_db:int,count:int):
         packet = b'apr\0'+bytes(name_of_db,'utf-8')+b'\0'+pack('I',count)
         size = pack('I',len(packet))
+        Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
+        Global_DB_Lock.release()
 
     def insert(self,name_of_db,row_number,data:list,typesI,append=False):
         if row_number != None:
@@ -314,8 +343,10 @@ class DB:
             data_offset += 1
 
         size = pack('I',len(packet))
+        Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
+        Global_DB_Lock.release()
 
     def append(self,name_of_db,data,typesI):
         self.insert(name_of_db,None,data,typesI,True)
