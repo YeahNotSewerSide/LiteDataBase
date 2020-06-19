@@ -351,31 +351,61 @@ class DB:
     def append(self,name_of_db,data,typesI):
         self.insert(name_of_db,None,data,typesI,True)
 
+    def get_count_of_rows(self,name_of_db):
+        packet = b'gcr\0'+bytes(name_of_db,'utf-8')
+        size = pack('I',len(packet))
+        Global_DB_Lock.acquire()
+        self.socket.send(size)
+        self.socket.send(packet)
+        dt = self.socket.recv(8)
+        v_size = unpack('Q',dt)[0]
+        received = self.socket.recv(v_size)
+        Global_DB_Lock.release()
 
-    #def insert(self,name_of_db:int,column_name:str,cell:int,value_type:str,value):
-    #    if value_type not in types:
-    #        raise Exception('Unknown type')
-    #    packet = b'ins\0'+bytes(name_of_db,'utf-8')+b'\0'+bytes(column_name,'utf-8')+b'\0'+pack('I',cell)
-    #    if value_type == types[0]:
-    #         packet+=bytes(value,'utf-8')+b'\0'
-    #    elif value_type == types[1]:
-    #         packet+= pack('i',value)
-    #    elif value_type == types[2]:
-    #         packet+= pack('I',value)
-    #    elif value_type == types[3]:
-    #         packet+= pack('f',value)
-    #    elif value_type == types[4]:
-    #         packet+= pack('q',value)
-    #    elif value_type == types[5]:
-    #         packet+= pack('Q',value)
-    #    elif value_type == types[6]:
-    #         packet+= pack('d',value)
-    #    elif value_type == types[7]:
-    #         packet+= pack('b',value)
-    #    size = pack('I',len(packet))
-    #    self.socket.send(size)
-    #    self.socket.send(packet)
+        return unpack('I',received)[0]
 
+    def where_many(self,name_of_db,column_name,data,type,mode):
+        '''
+        mode: 0 - ==
+			  1 - >
+			  2 - <
+        '''
+        packet = b'whn\0'+bytes(name_of_db,'utf-8')+b'\0'+bytes(column_name,'utf-8')+b'\0'+pack('B',mode)
+        if type == types[0]:
+            packet+=bytes(data[data_offset],'utf-8')+b'\0'
+        elif type == types[1]:
+            packet+= pack('i',data)
+        elif type == types[2]:
+            packet+= pack('I',data)
+        elif type == types[3]:
+            packet+= pack('f',data)
+        elif type == types[4]:
+            packet+= pack('q',data)
+        elif type == types[5]:
+            packet+= pack('Q',data)
+        elif type == types[6]:
+            packet+= pack('d',data)
+        elif type == types[7]:
+            packet+= pack('b',data)
+
+        size = pack('I',len(packet))
+
+        Global_DB_Lock.acquire()
+        self.socket.send(size)
+        self.socket.send(packet)
+
+        dt = self.socket.recv(8)
+        v_size = unpack('Q',dt)[0]
+        received = self.socket.recv(v_size)
+        Global_DB_Lock.release()
+        to_return = []
+
+        count = unpack('I',received[0:4])[0]
+        
+        for i in range(count-1):
+            offset = 4*i
+            to_return.append(unpack('I',received[4+offset:8+offset])[0])
+        return to_return
 
     def close(self):
         self.socket.close()
