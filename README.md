@@ -7,6 +7,8 @@ DataBase.cpp - server for DB, uses new threads for every new user
 Improve data base's server
 
 # Args
+  666 - default port
+
   -p <port> - specify port for db server(always must be first argument)
   
   If you want to load dbs from dumps just write:
