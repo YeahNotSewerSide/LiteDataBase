@@ -352,7 +352,7 @@ class DB:
         self.insert(name_of_db,None,data,typesI,True)
 
     def get_count_of_rows(self,name_of_db):
-        packet = b'gcr\0'+bytes(name_of_db,'utf-8')
+        packet = b'gcr\0'+bytes(name_of_db,'utf-8')+b'\0'
         size = pack('I',len(packet))
         Global_DB_Lock.acquire()
         self.socket.send(size)
