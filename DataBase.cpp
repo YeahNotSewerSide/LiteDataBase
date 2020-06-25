@@ -405,12 +405,17 @@ void work_with_db(SOCKET* sock,bool* alive) {
 		}
 		else if (strcmp(packet, "gcr\0") == 0) {
 			number_db = number_of_db(&packet[4]);
+			//unsigned int integer_data;
 			size_t size = 4;
+			//data = new char[size];
+			unsigned int count;
 			new_db.lock();
-			unsigned int data = dbs[number_db].get_count_of_rows();
+			count = dbs[number_db].get_count_of_rows();
+			//memcpy(data, (unsigned int*)&count,size);
+			//integer_data = dbs[number_db].get_count_of_rows();
 			new_db.unlock();
 			iResult = send(socket, (char*)&size, 8, 0);
-			iResult = send(socket, (char*)&data, size, 0);
+			iResult = send(socket, (char*)&count, size, 0);
 		}
 		
 		LOOP_END:delete[] packet;

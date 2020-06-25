@@ -254,6 +254,7 @@ private:
 	Column* columns;
 	bool inited;
 public:
+	
 	DB(char* name, unsigned int count_of_columns, unsigned int count_of_rows) {
 		this->name = new char[strlen(name) + 1];
 		strcpy_s(this->name, strlen(name) + 1, name);
@@ -414,7 +415,8 @@ public:
 	}
 
 	unsigned int get_count_of_rows() {
-		return count_of_rows;
+
+		return this->count_of_rows;
 	}
 
 	unsigned int get_count_of_columns() {
