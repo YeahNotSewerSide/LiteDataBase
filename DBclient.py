@@ -17,8 +17,8 @@ class DB:
     def connect(self):
         self.socket.connect((self.ip,self.port))
     
-    def create_db(self,name:str,count_of_columns:int,count_of_rows:int):
-        packet = b'ndb\0'+bytes(name,'utf-8')+b'\0'+pack('I',count_of_columns)+pack('I',count_of_rows)
+    def create_db(self,name:str,count_of_columns:int,count_of_rows:int,optimize_speed=True):
+        packet = b'ndb\0'+bytes(name,'utf-8')+b'\0'+pack('I',count_of_columns)+pack('I',count_of_rows)+pack('B',optimize_speed)
         size = pack('I',len(packet))
         Global_DB_Lock.acquire()
         self.socket.send(size)

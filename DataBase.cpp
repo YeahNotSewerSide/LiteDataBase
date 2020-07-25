@@ -122,7 +122,7 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			}
 			
 			dbs = buf;
-			dbs[dbs_count].init(&packet[4], *(unsigned int*)(&packet[packet_size-8]), *(unsigned int*)(&packet[packet_size - 4]));
+			dbs[dbs_count].init(&packet[4], *(unsigned int*)(&packet[packet_size-9]), *(unsigned int*)(&packet[packet_size - 5]),*(bool*)(&packet[packet_size-1]));
 			dbs_count++;
 			new_db.unlock();
 			
@@ -205,10 +205,10 @@ void work_with_db(SOCKET* sock,bool* alive) {
 				size = size + dbs[number_db].get_size(i, row_number);
 			}
 
-			char* data; 
+			//char* data; 
 			iResult = send(socket, (char*)& size, sizeof(size), 0);
 			if (iResult > 0) {
-				data = new char[size];
+				data = new char[size];//!!!!!!!!!!!
 				size_t spec_counter = 0;
 				for (unsigned int i=0; i < dbs[number_db].get_count_of_columns(); i++) {
 					memcpy(&data[spec_counter], dbs[number_db].get_value(i, row_number), dbs[number_db].get_size(i, row_number));
@@ -233,7 +233,7 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			unsigned int data_offset = column_name_offset + strlen(&packet[column_name_offset]) + 1;
 
 			size_t size = 4;
-			char* data;
+			//char* data;
 			unsigned int row = 0;
 			new_db.lock();
 			
@@ -256,7 +256,7 @@ void work_with_db(SOCKET* sock,bool* alive) {
 				//char* data;
 				iResult = send(socket, (char*)&size, sizeof(size), 0);
 				if (iResult > 0) {
-					data = new char[size];
+					data = new char[size];//!!!!!!!!!!!
 					memcpy(data, (unsigned int*)&row, sizeof(row));
 					size_t spec_counter = 4;
 					for (unsigned int i = 0; i < dbs[number_db].get_count_of_columns(); i++) {
@@ -299,7 +299,7 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			unsigned int cell_number = *(unsigned int*)(&packet[packet_size-4]);
 
 			unsigned int size=0;
-			char* data;
+			//char* data;
 			new_db.lock();
 			if (dbs[number_db].cell_is_empty(&packet[column_name_offset], cell_number)) {
 				data = new char[1];
@@ -335,7 +335,7 @@ void work_with_db(SOCKET* sock,bool* alive) {
 		}
 
 		else if (strcmp(packet, "exi\0") == 0) {// exist || exi\0 \x00\x00\x00\x00 name_of_column\0 value
-			data = new char[1];
+			data = new char[1];//!!!!!!!!!!!
 			number_db = number_of_db(&packet[4]);
 			unsigned int column_name_offset = strlen(&packet[4]) + 1 + 4;
 			unsigned int data_offset = column_name_offset + strlen(&packet[column_name_offset]) + 1;
@@ -382,7 +382,7 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			iResult = send(socket, (char*)&size, 8, 0);
 			if (size != 0) {
 
-				data = new char[size];
+				data = new char[size];//!!!!!
 
 				size_t spec_counter = 0;
 				for (unsigned int i = 0; i < dbs[number_db].get_count_of_columns(); i++) {
@@ -405,14 +405,13 @@ void work_with_db(SOCKET* sock,bool* alive) {
 		}
 		else if (strcmp(packet, "gcr\0") == 0) {
 			number_db = number_of_db(&packet[4]);
-			//unsigned int integer_data;
+			
 			size_t size = 4;
-			//data = new char[size];
+			
 			unsigned int count;
 			new_db.lock();
 			count = dbs[number_db].get_count_of_rows();
-			//memcpy(data, (unsigned int*)&count,size);
-			//integer_data = dbs[number_db].get_count_of_rows();
+			;
 			new_db.unlock();
 			iResult = send(socket, (char*)&size, 8, 0);
 			iResult = send(socket, (char*)&count, size, 0);
@@ -578,7 +577,7 @@ int main(int argc, char* argv[])
 	while (true) {
 		
 		ClientSocket = accept(ListenSocket, NULL, NULL);
-		cout << "New connection" << endl;
+		//cout << "New connection" << endl;
 		if (ClientSocket == INVALID_SOCKET) {
 			printf("accept failed: %d\n", WSAGetLastError());
 			continue;

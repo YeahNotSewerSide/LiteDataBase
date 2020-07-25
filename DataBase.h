@@ -2,6 +2,8 @@
 #include <iostream>
 #include <fstream>
 
+#define PLUSCELLS 500
+
 struct Types{
 	const char str[8] = "string\0";
 	const char integer[9] = "integer\0";
@@ -19,10 +21,10 @@ bool _false = false;
 class Cell {
 private:
 	unsigned char* value;
-	bool empty;
+	
 
 public:
-
+	bool empty;
 	void set_value(unsigned char* value, char* type) {
 		if (strcmp(type, types.str) == 0) {
 			if (!empty) {
@@ -31,35 +33,25 @@ public:
 			this->value = new unsigned char[strlen((char*)value) + 1];
 			strcpy_s((char*)this->value, strlen((char*)value) + 1, (char*)value);
 		}
+		else {
+			if (empty) {
+				this->value = new unsigned char[this->get_size(type,true)];
+			}
+			memcpy(this->value, value, this->get_size(type, true));
+		}
 
-		else if (strcmp(type, types.integer) == 0 || strcmp(type, types.uinteger) == 0 || strcmp(type, types._float) == 0) {
-			if (empty) {
-				this->value = new unsigned char[sizeof(int)];
-			}
-			memcpy(this->value, value, sizeof(int));
-		}
-		else if (strcmp(type, types._long) == 0 || strcmp(type, types.ulong) == 0 || strcmp(type, types._double) == 0) {
-			if (empty) {
-				this->value = new unsigned char[sizeof(long long)];
-			}
-			memcpy(this->value, value, sizeof(long long));
-		}
-		else if (strcmp(type, types.boolean) == 0) {
-			if (empty) {
-				this->value = new unsigned char[1];
-			}
-			memcpy(this->value, value, 1);
-		}
+
+		
 		empty = false;
 	}
 
-	unsigned int get_size(char* type) {
+	unsigned int get_size(char* type,bool get_type_size=false) {
 		
-		if (empty) {
+		if (empty && !get_type_size) {
 			return 0;
 		}
 
-		if (strcmp(type, types.str) == 0) {
+		if (strcmp(type, types.str) == 0 && !empty) {
 			return strlen((char*)value)+1;
 		}
 
@@ -89,19 +81,18 @@ public:
 		this->empty = false;
 
 	}
-	Cell(char* type) {
-
-		this->empty = true;
-	}
 	Cell() {
 		this->empty = true;
 	}
 	void clear() {
 		if (!this->empty) {
 			delete[] value;
-			empty = true;
+			this->empty = true;
 		}
 
+	}
+	void make_empty() {
+		this->empty = true;
 	}
 	
 
@@ -113,13 +104,15 @@ private:
 	char* type;
 
 	unsigned int n_rows;
+	unsigned int actual_size;
+
 	Cell* cells;
 	bool inited;
 public:
 	Column() {
 		inited = false;
 	}
-	void init(char* name, char* type, unsigned int n_rows) {
+	void init(char* name, char* type, unsigned int n_rows,unsigned int actual_size) {
 		if (inited) {
 			return;
 		}
@@ -128,8 +121,10 @@ public:
 		strcpy_s(this->name, strlen(name) + 1, name);
 		strcpy_s(this->type, strlen(type) + 1, type);
 		this->n_rows = n_rows;
+		this->actual_size = actual_size;
+		//this->appending = this->actual_size - this->n_rows;
 
-		this->cells = new Cell[this->n_rows];
+		this->cells = new Cell[this->actual_size];
 		inited = true;
 	}
 
@@ -185,14 +180,14 @@ public:
 
 	void append_cell(unsigned int count) {
 
-		Cell* buf = new Cell[this->n_rows + count];
+		Cell* buf = new Cell[this->actual_size + count];
 		
-		unsigned int counter = n_rows * sizeof(Cell);
+		unsigned int counter = this->actual_size * sizeof(Cell);
 
 		if (counter != 0) {
 			memcpy(buf, cells, counter);
 		}
-		n_rows = n_rows + count;
+		this->actual_size = this->actual_size + count;
 		delete[] cells;
 		cells = buf;
 	}
@@ -207,34 +202,39 @@ public:
 		return type;
 	}
 
-	Cell* pop(unsigned int cell_number) {
+	Cell pop(unsigned int cell_number) {
 		//Returns pointer to Cell, must be deleted
 		if (n_rows == 0) {
 			throw 25;
 		}
-		Cell* to_return = new Cell();
-		memcpy(to_return,&cells[cell_number],sizeof(Cell));				
-		//if (cell_number != (this->n_rows - 1)) {
-		Cell* buf = new Cell[n_rows-1];
-		memcpy(buf, cells, cell_number * sizeof(Cell));
-		memcpy(&buf[cell_number], &cells[cell_number + 1], (n_rows - 1 - cell_number) * sizeof(Cell));
-		delete[] cells;
-		cells = buf;			
+		//Cell* to_return = new Cell();
+		Cell to_return;
+		memcpy(&to_return,&cells[cell_number],sizeof(Cell));				
+		
+		memcpy(&cells[cell_number], &cells[cell_number + 1], (n_rows - 1 - cell_number) * sizeof(Cell));
+		cells[this->n_rows - 1].make_empty();
+				
 		n_rows -= 1;
+
 		//}
 		
 		return to_return;
 	}
 
 	void insert(unsigned int cell_number, unsigned char* data) {
-		Cell* buf = new Cell[n_rows + 1];
-		memcpy(buf,cells,cell_number*sizeof(Cell));
-		buf[cell_number].set_value(data,this->type);
-		memcpy(&buf[cell_number+1],&cells[cell_number],(n_rows-cell_number)*sizeof(Cell));
 
-		delete[] cells;
-		cells = buf;
+		if (n_rows >= actual_size) {
+			this->append_cell(PLUSCELLS);
+		}
+		if (cell_number < n_rows) {
+			memcpy(&this->cells[cell_number + 1], &this->cells[cell_number], (n_rows - 1 - cell_number) * sizeof(Cell));
+		}
+		this->cells[cell_number].make_empty();
+		
+		this->cells[cell_number].set_value(data,this->type);
+		
 		n_rows += 1;
+		
 	}
 
 
@@ -249,30 +249,32 @@ class DB {
 private:
 	unsigned int count_of_rows;
 	unsigned int count_of_columns;
+	bool opt;
 	//unsigned int last_row=0;
 	char* name;
 	Column* columns;
 	bool inited;
 public:
 	
-	DB(char* name, unsigned int count_of_columns, unsigned int count_of_rows) {
+	/*DB(char* name, unsigned int count_of_columns, unsigned int count_of_rows) {
 		this->name = new char[strlen(name) + 1];
 		strcpy_s(this->name, strlen(name) + 1, name);
 		this->count_of_columns = count_of_columns;
 		this->count_of_rows = count_of_rows;
 		this->columns = new Column[this->count_of_columns];
 		inited = true;
-	}
+	}*/
 
 	DB() {
 		inited = false;
 	}
-	void init(char* name, unsigned int count_of_columns, unsigned int count_of_rows) {
+	void init(char* name, unsigned int count_of_columns, unsigned int count_of_rows,bool optimize_speed=true) {
 		this->name = new char[strlen(name) + 1];
 		strcpy_s(this->name, strlen(name) + 1, name);
 		this->count_of_columns = count_of_columns;
 		this->count_of_rows = count_of_rows;
 		this->columns = new Column[this->count_of_columns];
+		this->opt = optimize_speed;
 		inited = true;
 	}
 
@@ -309,7 +311,12 @@ public:
 		if (column < 0 || column >= count_of_columns) {
 			return false;
 		}
-		this->columns[column].init(name, type, count_of_rows);
+		if (this->opt) {
+			this->columns[column].init(name, type, count_of_rows,this->count_of_rows+PLUSCELLS);
+		}
+		else {
+			this->columns[column].init(name, type, count_of_rows, this->count_of_rows);
+		}
 		return true;
 	}
 	unsigned char* get_value(unsigned int column, unsigned int row) {
@@ -353,7 +360,15 @@ public:
 		unsigned int counter = sizeof(Column) * count_of_columns;
 		memcpy(buf, columns, counter);
 		delete[] columns;
-		buf[count_of_columns].init(column_name, type, count_of_rows);
+
+		if (this->opt) {
+			buf[count_of_columns].init(name, type, count_of_rows, this->count_of_rows + PLUSCELLS);
+		}
+		else {
+			buf[count_of_columns].init(name, type, count_of_rows, this->count_of_rows);
+		}
+
+		//buf[count_of_columns].init(column_name, type, count_of_rows);
 		columns = buf;
 		count_of_columns += 1;
 	}
@@ -384,7 +399,12 @@ public:
 			return;
 		}
 		columns[column].uninit();
-		columns[column].init(name, type, count_of_rows);
+		if (this->opt) {
+			this->columns[column].init(name, type, count_of_rows, this->count_of_rows + PLUSCELLS);
+		}
+		else {
+			this->columns[column].init(name, type, count_of_rows, this->count_of_rows);
+		}
 
 	}
 
@@ -425,7 +445,7 @@ public:
 
 	bool dump(char* path) {
 		std::ofstream file;
-		char* filename = new char[strlen(name) + 6 + strlen(path)];
+		char* filename = new char[strlen(name) + 6 + strlen(path)];//!!!!!!!!!!!!!!!!!
 		memcpy(filename, path, strlen(path));
 		memcpy(&filename[strlen(path)], name, strlen(name));
 		filename[strlen(path) + strlen(name)] = '.';
@@ -435,10 +455,11 @@ public:
 		filename[strlen(path) + strlen(name) + 4] = 'a';
 		filename[strlen(path) + strlen(name) + 5] = '\0';
 		file.open(filename, std::ios::binary);
-		bool* empty = new bool[1];
+		bool* empty = new bool[1];//!!!!!!!!!!!!!!!!
 		if (!file.is_open()) {
 			return false;
 		}
+		file << (unsigned char*)&this->opt;
 		file << (unsigned char*)name << '\0';
 		for (size_t i = 0; i < sizeof(count_of_columns); i++) {
 			file << ((unsigned char*)& count_of_columns)[i];
@@ -464,19 +485,6 @@ public:
 				
 				file.write((const char*)get_value(i,n),get_size(i,n));
 
-				/*if (strcmp(columns[i].get_type(), types.str) == 0) {
-					file << columns[i].get_value(n) << '\0';
-
-				}
-				else if (strcmp(columns[i].get_type(), types.integer) == 0 || strcmp(columns[i].get_type(), types.uinteger) == 0 || strcmp(columns[i].get_type(), types._float) == 0) {
-					file.write((char*)this->get_value(i, n), sizeof(int));
-				}
-				else if (strcmp(columns[i].get_type(), types._long) == 0 || strcmp(columns[i].get_type(), types.ulong) == 0 || strcmp(columns[i].get_type(), types._double) == 0) {
-					file.write((char*)this->get_value(i, n), sizeof(long long));
-				}
-				else if (strcmp(columns[i].get_type(), types.boolean) == 0) {
-					file << *this->get_value(i, n);
-				}*/
 			}
 
 		}
@@ -500,7 +508,7 @@ public:
 		if (!file.is_open()) {
 			return false;
 		}
-
+		file.read((char*)&this->opt,1);
 		char* ch = new char[1];//!!!!!!!!!!!!!!!!!!!!!!!
 		unsigned int len = 0;
 		ch[0] = 'a';
@@ -509,7 +517,7 @@ public:
 			len++;
 		}
 		this->name = new char[len];//!!!!!!!!!!!!!!!!!!!!!!!
-		file.seekg(0, std::ios_base::beg);
+		file.seekg(1, std::ios_base::beg);
 		file.read(name, len);
 
 		file.read((char*)& count_of_columns, sizeof(count_of_columns));
@@ -544,7 +552,12 @@ public:
 			file.seekg((unsigned long)file.tellg() - len, std::ios_base::beg);
 			file.read((char*)column_type, len);
 
-			columns[i].init((char*)column_name, (char*)column_type, count_of_rows);
+			if (this->opt) {
+				this->columns[i].init((char*)column_name, (char*)column_type, count_of_rows, this->count_of_rows + PLUSCELLS);
+			}
+			else {
+				this->columns[i].init((char*)column_name, (char*)column_type, count_of_rows, this->count_of_rows);
+			}
 
 			delete[] column_name;
 			delete[] column_type;
@@ -792,17 +805,17 @@ public:
 	
 	Cell* pop(unsigned int cell_number) {	
 		Cell* to_return = new Cell[count_of_columns];
-		Cell* temp;
+		Cell temp;
 		try {
 			for (unsigned int i = 0; i < count_of_columns; i++) {
 				temp = columns[i].pop(cell_number);
-				memcpy(&to_return[i], temp, sizeof(Cell));
-				delete temp;
+				memcpy(&to_return[i], &temp, sizeof(Cell));
+				//delete temp;
 			}
 		}
 		catch (int e) {
 			for (unsigned int i = 0; i < count_of_columns; i++) {
-				to_return->clear();
+				to_return[i].clear();
 			}
 			delete[] to_return;
 			throw 25;
