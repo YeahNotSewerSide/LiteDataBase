@@ -20,6 +20,7 @@ class DB:
     def create_db(self,name:str,count_of_columns:int,count_of_rows:int,optimize_speed=True):
         packet = b'ndb\0'+bytes(name,'utf-8')+b'\0'+pack('I',count_of_columns)+pack('I',count_of_rows)+pack('B',optimize_speed)
         size = pack('I',len(packet))
+
         Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
@@ -30,6 +31,7 @@ class DB:
             raise Exception('Unknown type')
         packet = b'ico\0'+bytes(name_of_db,'utf-8')+b'\0'+pack('I',column)+bytes(column_name,'utf-8')+b'\0'+bytes(column_type,'utf-8')+b'\0'
         size = pack('I',len(packet))
+
         Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
@@ -56,6 +58,7 @@ class DB:
         elif value_type == types[7]:
              packet+= pack('b',value)
         size = pack('I',len(packet))
+
         Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
@@ -66,6 +69,7 @@ class DB:
             raise Exception('Unknown type')
         packet = b'gva\0'+bytes(name_of_db,'utf-8')+b'\0'+bytes(column_name,'utf-8')+b'\0'+pack('I',cell)
         size = pack('I',len(packet))
+
         Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
@@ -96,6 +100,7 @@ class DB:
     def get_row(self,name_of_db:int,row_number:int,typesI:list):
         packet = b'gro\0'+bytes(name_of_db,'utf-8')+b'\0'+pack('I',row_number)
         size = pack('I',len(packet))
+
         Global_DB_Lock.acquire()
         self.socket.send(size)
         self.socket.send(packet)
@@ -103,6 +108,7 @@ class DB:
         v_size = unpack('Q',dt)[0]
         received = self.socket.recv(v_size)
         Global_DB_Lock.release()
+
         data = []
         offset = 0
         for type in typesI:
@@ -270,6 +276,7 @@ class DB:
         dt = self.socket.recv(8)
         v_size = unpack('Q',dt)[0]
         if v_size == 0:
+            Global_DB_Lock.release()
             raise Exception('Row uninitialized')
         
         received = self.socket.recv(v_size)
