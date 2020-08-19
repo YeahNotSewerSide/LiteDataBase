@@ -459,8 +459,9 @@ public:
 		if (!file.is_open()) {
 			return false;
 		}
-		file << (unsigned char*)&this->opt;
-		file << (unsigned char*)name << '\0';
+		file.write((char*)&this->opt, 1);
+		//file << (unsigned char*)&this->opt;
+		file << (unsigned char*)this->name << '\0';
 		for (size_t i = 0; i < sizeof(count_of_columns); i++) {
 			file << ((unsigned char*)& count_of_columns)[i];
 		}
