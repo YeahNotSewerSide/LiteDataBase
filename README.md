@@ -1,5 +1,5 @@
 # DataBase
-DataBase.h - header file with core of DB.(It's not a header file for DataBase.cpp!!!)
+DataBase.h - header file with core of DB.(It's not a header file for DataBase.cpp!!!, Why? Because I dont't care)
 
 DataBase.cpp - server for DB, uses new threads for every new user
 
