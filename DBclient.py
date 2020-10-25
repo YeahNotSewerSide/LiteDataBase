@@ -80,7 +80,7 @@ class DB:
         
         if value_type == types[0]:
              data=received[:-1].decode('utf-8')
-	     return data
+             return data
         elif value_type == types[1]:
              data= unpack('i',received)
         elif value_type == types[2]:
