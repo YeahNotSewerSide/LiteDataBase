@@ -24,6 +24,7 @@ unsigned int sockets_count = 0;
 SOCKET* sockets_pool = new SOCKET[pool_size];
 
 DB* dbs;
+
 unsigned int dbs_count = 0;
 
 const char ALREADY_EXISTS[] = "Already exists\0";
@@ -51,6 +52,7 @@ char* parse_main_path(char* path) {
 
 mutex mtx_new_connection;           // mutex for critical section
 mutex new_db;
+mutex* mutexes;
 
 
 unsigned int number_of_db(char* db_name) {
@@ -115,13 +117,21 @@ void work_with_db(SOCKET* sock,bool* alive) {
 				goto LOOP_END;
 			}
 
-			DB* buf = new DB[dbs_count+1];			
+			DB* buf = new DB[dbs_count+1];	
+			
 			if (dbs_count > 0) {				
 				memcpy(buf, dbs, dbs_count * sizeof(DB));				
 				delete[] dbs;				
 			}
+			mutex* buf_mutex = new mutex[dbs_count + 1];
+			//buf_mutex[dbs_count].unlock();
+			if (dbs_count > 0) {
+				memcpy(buf_mutex, mutexes, dbs_count * sizeof(mutex));
+				delete[] mutexes;
+			}
 			
 			dbs = buf;
+			mutexes = buf_mutex;
 			dbs[dbs_count].init(&packet[4], *(unsigned int*)(&packet[packet_size-9]), *(unsigned int*)(&packet[packet_size - 5]),*(bool*)(&packet[packet_size-1]));
 			dbs_count++;
 			new_db.unlock();
@@ -136,9 +146,13 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			unsigned int column_number_offset = strlen(&packet[4]) + 1 +4 ;
 			unsigned int column_name_offset = column_number_offset + 4;
 			unsigned int type_of_column_offset = column_name_offset + strlen(&packet[column_name_offset]) + 1;
-			new_db.lock();			
-			dbs[number_db].init_column(*(unsigned int*)(&packet[column_number_offset]),&packet[column_name_offset],&packet[type_of_column_offset]);
+			new_db.lock();
 			new_db.unlock();
+
+			mutexes[number_db].lock();
+			dbs[number_db].init_column(*(unsigned int*)(&packet[column_number_offset]),&packet[column_name_offset],&packet[type_of_column_offset]);
+			mutexes[number_db].unlock();
+			//new_db.unlock();
 		}
 		else if(strcmp(packet, "aco\0") == 0){// append column || aco\0   name\x00           name\0			type\0  
 											  //				  cmd    name of db	    column name    type of column	
@@ -149,8 +163,12 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			unsigned int column_name_offset = strlen(&packet[4]) + 1 + 4;
 			unsigned int type_of_column_offset = column_name_offset + strlen(&packet[column_name_offset]) + 1;
 			new_db.lock();
-			dbs[number_db].append_column(&packet[column_name_offset],&packet[type_of_column_offset]);
 			new_db.unlock();
+
+			mutexes[number_db].lock();
+			dbs[number_db].append_column(&packet[column_name_offset],&packet[type_of_column_offset]);
+			mutexes[number_db].unlock();
+			//new_db.unlock();
 		}
 		else if ((strcmp(packet, "sva\0") == 0)) {// set value || sva\0	    name\x00  name_of_column\0  \x00\x00\x00\x00       data
 												//				cmd       name of db		name_of_column	  cell number	    data
@@ -164,10 +182,14 @@ void work_with_db(SOCKET* sock,bool* alive) {
 
 
 			new_db.lock();
+			new_db.unlock();
+
+			mutexes[number_db].lock();
 			if (strcmp(packet, "sva\0") == 0) {
 				dbs[number_db].set_value(&packet[column_name_offset], *(unsigned int*)(&packet[cell_number_offset]), &packet[cell_number_offset + 4]);
 			}
-			new_db.unlock();
+			mutexes[number_db].unlock();
+			//new_db.unlock();
 		}
 		else if ((strcmp(packet, "ins\0") == 0) || (strcmp(packet, "app\0") == 0)) { //ins\0 name_of_db row_number data
 			number_db = number_of_db(&packet[4]);
@@ -175,6 +197,9 @@ void work_with_db(SOCKET* sock,bool* alive) {
 				goto LOOP_END;
 			}
 			new_db.lock();
+			new_db.unlock();
+
+			mutexes[number_db].lock();
 			if ((strcmp(packet, "ins\0") == 0)) {
 				unsigned int row_number_offset = 4 + strlen(&packet[4]) + 1;
 				unsigned int data_offset = row_number_offset + 4;
@@ -188,7 +213,8 @@ void work_with_db(SOCKET* sock,bool* alive) {
 				dbs[number_db].append((unsigned char*)&packet[data_offset]);
 				
 			}
-			new_db.unlock();
+			mutexes[number_db].unlock();
+			//new_db.unlock();
 		}
 		else if (strcmp(packet, "gro\0") == 0) {// get whole row || gro\0 \x00\x00\x00\x00    \x00\x00\x00\x00
 												//				    cmd        number of db	   row
@@ -200,6 +226,8 @@ void work_with_db(SOCKET* sock,bool* alive) {
 
 			new_db.lock();
 			new_db.unlock();
+
+			mutexes[number_db].lock();
 			size_t size = 0;
 			for (unsigned int i=0; i < dbs[number_db].get_count_of_columns(); i++) {
 				size = size + dbs[number_db].get_size(i, row_number);
@@ -217,6 +245,7 @@ void work_with_db(SOCKET* sock,bool* alive) {
 				iResult = send(socket, data, size, 0);
 				delete[] data;
 			}
+			mutexes[number_db].unlock();
 
 
 		}
@@ -236,8 +265,9 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			//char* data;
 			unsigned int row = 0;
 			new_db.lock();
-			
-			
+			new_db.unlock();
+
+			mutexes[number_db].lock();
 			bool ok = true;
 			try{
 				row = dbs[number_db].where(&packet[column_name_offset], (unsigned char*)&packet[data_offset]);
@@ -267,7 +297,8 @@ void work_with_db(SOCKET* sock,bool* alive) {
 					delete[] data;
 				}
 			}
-			new_db.unlock();
+			mutexes[number_db].unlock();
+			//new_db.unlock();
 
 		}
 		else if (strcmp(packet, "whn\0") == 0) {
@@ -279,8 +310,13 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			unsigned char mode = packet[column_name_offset+strlen(&packet[column_name_offset])+1];
 			unsigned int data_offset = column_name_offset + strlen(&packet[column_name_offset]) + 2;
 			new_db.lock();
-			unsigned int* data = dbs[number_db].wheren(&packet[column_name_offset],(unsigned char*)&packet[data_offset],mode);
 			new_db.unlock();
+
+			mutexes[number_db].lock();
+			unsigned int* data = dbs[number_db].wheren(&packet[column_name_offset],(unsigned char*)&packet[data_offset],mode);
+			//new_db.unlock();
+			mutexes[number_db].unlock();
+
 			size_t size = data[0] * sizeof(unsigned int);
 
 			iResult = send(socket, (char*)&size, sizeof(size), 0);
@@ -301,6 +337,9 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			unsigned int size=0;
 			//char* data;
 			new_db.lock();
+			new_db.unlock();
+
+			mutexes[number_db].lock();
 			if (dbs[number_db].cell_is_empty(&packet[column_name_offset], cell_number)) {
 				data = new char[1];
 				data[0] = '\0';
@@ -317,7 +356,8 @@ void work_with_db(SOCKET* sock,bool* alive) {
 					iResult = send(socket, data, size, 0);
 				}
 			}
-			new_db.unlock();
+			mutexes[number_db].unlock();
+			//new_db.unlock();
 			
 		}
 		else if (strcmp(packet, "gty\0") == 0) {// get type || gty\0 \x00\x00\x00\x00  name_of_column\0   
@@ -339,19 +379,24 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			number_db = number_of_db(&packet[4]);
 			unsigned int column_name_offset = strlen(&packet[4]) + 1 + 4;
 			unsigned int data_offset = column_name_offset + strlen(&packet[column_name_offset]) + 1;
+
+			mutexes[number_db].lock();
 			if (dbs[number_db].exist(&packet[column_name_offset], (unsigned char*)& packet[data_offset])) {
 				data[0] = (char)1;
 			}
 			else {
 				data[0] = '\0';
 			}
+			mutexes[number_db].unlock();
 			iResult = send(socket, data, 1, 0);
 			delete[] data;
 		}
 		else if (strcmp(packet, "apr\0") == 0) {//append row || apr\0 \x00\x00\x00\x00
 			number_db = number_of_db(&packet[4]);
 			unsigned int count_rows = *(unsigned int*)&packet[packet_size - 4];
+			mutexes[number_db].lock();
 			dbs[number_db].append_rows(count_rows);
+			mutexes[number_db].unlock();
 
 		}
 		else if (strcmp(packet, "dum\0") == 0) {//dump all dbs
@@ -367,18 +412,23 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			size_t size = 0;
 			Cell* popped_row;
 			new_db.lock();
+			new_db.unlock();
+
+			mutexes[number_db].lock();
 			try {
 				popped_row = dbs[number_db].pop(row);
 			}
 			catch(int e){
-				new_db.unlock();
+				//new_db.unlock();
+				mutexes[number_db].unlock();
 				iResult = send(socket, (char*)&size, 8, 0);
 				goto LOOP_END;
 			}
 			for (unsigned int i = 0; i < dbs[number_db].get_count_of_columns(); i++) {
 				size += popped_row[i].get_size(dbs[number_db].get_type(i));
 			}
-			new_db.unlock();
+			//new_db.unlock();
+			mutexes[number_db].unlock();
 			iResult = send(socket, (char*)&size, 8, 0);
 			if (size != 0) {
 
@@ -410,9 +460,12 @@ void work_with_db(SOCKET* sock,bool* alive) {
 			
 			unsigned int count;
 			new_db.lock();
-			count = dbs[number_db].get_count_of_rows();
-			;
 			new_db.unlock();
+
+			mutexes[number_db].lock();
+			count = dbs[number_db].get_count_of_rows();
+			mutexes[number_db].unlock();
+			
 			iResult = send(socket, (char*)&size, 8, 0);
 			iResult = send(socket, (char*)&count, size, 0);
 		}
@@ -490,7 +543,9 @@ int main(int argc, char* argv[])
 	if (argc > 1 && offset != 0 ) {
 		dbs = new DB[argc - offset];
 		dbs_count = argc - offset;
+		mutexes = new mutex[dbs_count];
 		for (int i = 0; i < (argc - offset); i++) {
+			mutexes[i].unlock();
 			if (!dbs[i].load(argv[offset + i])) {
 				filename = new char[strlen(root_path) + strlen(argv[offset + i]) + 1];
 				memcpy(filename, root_path, strlen(root_path));
