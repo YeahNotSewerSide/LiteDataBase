@@ -545,7 +545,7 @@ int main(int argc, char* argv[])
 		dbs_count = argc - offset;
 		mutexes = new mutex[dbs_count];
 		for (int i = 0; i < (argc - offset); i++) {
-			mutexes[i].unlock();
+			//mutexes[i].unlock();
 			if (!dbs[i].load(argv[offset + i])) {
 				filename = new char[strlen(root_path) + strlen(argv[offset + i]) + 1];
 				memcpy(filename, root_path, strlen(root_path));
